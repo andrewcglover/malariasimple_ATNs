@@ -158,6 +158,11 @@ get_parameters <- function(
     dPL = 0.643,
     gammaL = 13.25,
     betaL = 21.2,
+    # ATN parameters
+    t0_atn     = 1095,  # distribution time (days)
+    Q0_atn     = 0.9,  # initial coverage right after distribution
+    lambda_atn = 0.0017, # mean loss rate (1 / mean duration)
+    p_atn      = 0.9,  # prob(exposure | hits a net)
     # intervention parameters
     daily_ft = 0,
     clin_inc_rendering_min_ages = NULL,
@@ -290,6 +295,12 @@ get_parameters <- function(
 
   # Erlang EIP
   params$spor_len <- spor_len # number of latently-infected mosquito compartments
+
+  # ATN parameters
+  params$t0_atn     <- t0_atn  # distribution time (days)
+  params$Q0_atn     <- Q0_atn  # initial coverage right after distribution
+  params$lambda_atn <- lambda_atn # mean loss rate (1 / mean duration)
+  params$p_atn      <- p_atn  # prob(exposure | hits a net)
 
   # larval parameters
   params$muEL <- muEL

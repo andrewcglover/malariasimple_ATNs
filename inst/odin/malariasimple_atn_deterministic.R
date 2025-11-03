@@ -367,13 +367,18 @@ spor_len <- parameter()
 # Mosquito states
 dim(Ev) <- spor_len
 
-# initial state values:
+#initial state values:
 init_Sv <- parameter()
 init_Pv <- parameter()
 init_Iv <- parameter()
 initial(Sv) <- init_Sv * mv0
 #initial(Pv) <- init_Pv * mv0
-initial(Ev[1:spor_len]) <- init_Pv * mv0 / spor_len
+#initial(Ev[1:spor_len]) <- init_Pv * mv0 / spor_len
+kappa <- spor_len / delayMos
+Ev_ratio <- kappa / (kappa + mu)
+Ev_norm_factor <- (1 - Ev_ratio^spor_len) / (1 - Ev_ratio)
+E1_eq <- init_Pv * mv0 / Ev_norm_factor
+initial(Ev[1:spor_len]) <- E1_eq * Ev_ratio^(i - 1)
 initial(Iv) <- init_Iv * mv0
 
 # cA is the infectiousness to mosquitoes of humans in the asmyptomatic compartment broken down
@@ -404,29 +409,32 @@ lag_FOIv=sum(FOIvijk)
 
 ince <- FOIv[lag_ratesMos] * lag_ratesMos/delayGam * Sv
 
-initial(ince_delay[]) <- FOIv_eq*init_Sv*mv0*delayMos_use/lag_ratesMos
-dim(ince_delay) <- lag_ratesMos
+# Updated to account for explicit Erlang EIP
+#initial(ince_delay[]) <- FOIv_eq*init_Sv*mv0*delayMos_use/lag_ratesMos
+#dim(ince_delay) <- lag_ratesMos
+#
+#update(ince_delay[1]) <- ince_delay[1] + dt*(ince - (lag_ratesMos/delayMos_use)*ince_delay[1])
+#update(ince_delay[2:lag_ratesMos]) <- ince_delay[i] + dt*((lag_ratesMos/delayMos_use)*ince_delay[i-1] -
+#                                                            (lag_ratesMos/delayMos_use)*ince_delay[i])
+#
+#incv <- ince_delay[lag_ratesMos]*lag_ratesMos/delayMos_use * surv
 
-update(ince_delay[1]) <- ince_delay[1] + dt*(ince - (lag_ratesMos/delayMos_use)*ince_delay[1])
-update(ince_delay[2:lag_ratesMos]) <- ince_delay[i] + dt*((lag_ratesMos/delayMos_use)*ince_delay[i-1] -
-                                                            (lag_ratesMos/delayMos_use)*ince_delay[i])
-
-incv <- ince_delay[lag_ratesMos]*lag_ratesMos/delayMos_use * surv
+incv <- (spor_len / delayMos) * Ev[spor_len] #* surv
 
 # Current hum->mos FOI depends on the number of individuals now producing gametocytes (12 day lag)
 delayGam <- parameter()
 delayMos <- parameter()
-delayMos_use <- delayMos
+#delayMos_use <- delayMos
 # Number of mosquitoes that become infected at each time point
-surv <- exp(-mu*delayMos_use)
+#surv <- exp(-mu*delayMos_use)
 
 # Number of mosquitoes born (depends on PL, number of larvae), or is constant outside of seasonality
 betaa <- 0.5*PL/dPL
 
 update(Sv) <- if(Sv + dt*(-ince - mu*Sv + betaa) < 0) 0 else Sv + dt*(-ince - mu*Sv + betaa)
 #update(Pv) <- if(Pv + dt*(ince - incv - mu*Pv) < 0) 0 else Pv + dt*(ince - incv - mu*Pv)
-update(Ev[1]) <- if (Ev[1] + dt*(ince - (spor_len/delayMos)*Ev[1] - mu*Ev[1]) < 0) 0 else Ev[1] + dt*(ince - (spor_len/delayMos)*Ev[1] - mu*Ev[1])
-update(Ev[2:spor_len]) <- if (Ev[i] + dt*((spor_len/delayMos)*Ev[i-1] - (spor_len/delayMos)*Ev[i] - mu*Ev[i]) < 0) 0 else Ev[i] + dt*((spor_len/delayMos)*Ev[i-1] - (spor_len/delayMos)*Ev[i] - mu*Ev[i])
+update(Ev[1]) <- if (Ev[1] + dt*(ince - kappa*Ev[1] - mu*Ev[1]) < 0) 0 else Ev[1] + dt*(ince - kappa*Ev[1] - mu*Ev[1])
+update(Ev[2:spor_len]) <- if (Ev[i] + dt*(kappa*Ev[i-1] - kappa*Ev[i] - mu*Ev[i]) < 0) 0 else Ev[i] + dt*(kappa*Ev[i-1] - kappa*Ev[i] - mu*Ev[i])
 update(Iv) <- if(Iv + dt*(incv - mu*Iv) < 0) 0 else Iv + dt*(incv - mu*Iv)
 
 # Total mosquito population
@@ -554,6 +562,64 @@ s_itn_daily <- parameter()
 
 r_itn <- interpolate(days, r_itn_daily, "linear")
 s_itn <- interpolate(days, s_itn_daily, "linear")
+
+################## ATN #######################
+
+# Parameters
+# t0_atn     <- parameter()
+# Q0_atn     <- parameter()
+# lambda_atn <- parameter()
+# p_atn      <- parameter()
+# phi_atn    <- phi_bednets
+#
+# # Internal time tracker (odin2 doesn't auto-update 'time')
+# initial(tt) <- 0
+# update(tt)  <- tt + dt
+#
+# # ATN coverage state
+# initial(Q_atn) <- 0
+# #update(Q_atn) <- if (tt < t0_atn) 0 else Q0_atn * exp(-lambda_atn * (tt - t0_atn))
+# update(Q_atn) <- if (tt < t0_atn) 0 else if (tt == t0_atn) Q0_atn else Q_atn + dt * (-lambda_atn * Q_atn)
+#
+#
+# # Probability mosquito is exposed to antimalarial drugs on attempted bite
+# delta_atn <- p_atn * phi_atn * Q_atn
+#
+# # Dummy variable so dust2 retains these outputs
+# initial(atn_debug) <- 0
+# update(atn_debug)  <- delta_atn
+
+
+# Parameters
+t0_atn     <- parameter()
+Q0_atn     <- parameter()
+lambda_atn <- parameter()
+p_atn      <- parameter()
+phi_atn    <- phi_bednets
+
+# Internal time tracker
+initial(tt) <- 0
+update(tt)  <- tt + dt
+
+# ATN coverage (analytic function)
+Q_atn_t <- if (tt < t0_atn) 0 else Q0_atn * exp(-lambda_atn * (tt - t0_atn))
+
+# Probability mosquito is exposed to antimalarial drugs on attempted bite
+delta_atn <- p_atn * phi_atn * Q_atn_t
+
+# Track Q_atn over time (so it’s output like a state variable)
+# TRY RECORDING THIS AS A VECTOR
+initial(Q_atn) <- 0
+update(Q_atn)  <- Q_atn_t
+
+# Dummy variable to ensure delta_atn is kept
+initial(atn_debug) <- 0
+update(atn_debug)  <- delta_atn
+
+
+
+
+
 ################## GENERAL INTERVENTION PARAMETERS #######################
 num_int <- parameter()
 
@@ -602,6 +668,108 @@ Q <- 1-(1-Q0)/wbar # updated anthropophagy given interventions
 av <- fv*Q # biting rate on humans
 dim(av_mosq) <- num_int
 av_mosq[1:num_int] <- av*w[i]/wh # rate at which mosquitoes bite each int. cat.
+
+
+################## GENERAL INTERVENTION PARAMETERS #######################
+# Number of intervention combinations:
+# 8 when ITN + SMC + ATN are all included
+# num_int <- parameter()
+#
+# # ---------------- COVERAGE CATEGORIES (ITN, SMC, ATN) -----------------
+# # Categories:
+# # 1: None
+# # 2: ITN only
+# # 3: SMC only
+# # 4: ITN + SMC
+# # 5: ATN only
+# # 6: ITN + ATN
+# # 7: SMC + ATN
+# # 8: ITN + SMC + ATN
+#
+# dim(cov_) <- 8
+# cov_[1] <- (1 - max_itn_cov) * (1 - max_smc_cov) * (1 - max_atn_cov)
+# cov_[2] <-  max_itn_cov      * (1 - max_smc_cov) * (1 - max_atn_cov)
+# cov_[3] <- (1 - max_itn_cov) *  max_smc_cov      * (1 - max_atn_cov)
+# cov_[4] <-  max_itn_cov      *  max_smc_cov      * (1 - max_atn_cov)
+# cov_[5] <- (1 - max_itn_cov) * (1 - max_smc_cov) *  max_atn_cov
+# cov_[6] <-  max_itn_cov      * (1 - max_smc_cov) *  max_atn_cov
+# cov_[7] <- (1 - max_itn_cov) *  max_smc_cov      *  max_atn_cov
+# cov_[8] <-  max_itn_cov      *  max_smc_cov      *  max_atn_cov
+# cov[] <- cov_[i]
+# dim(cov) <- num_int
+#
+# # ---------------- MOSQUITO FEEDING/SURVIVAL EFFECTS -----------------
+# # w[i] = probability mosquito bites and survives in category i
+# # (ATNs do not currently change feeding survival directly)
+# dim(w_) <- 8
+# w_[1] <- 1
+# w_[2] <- 1 - phi_bednets + phi_bednets * s_itn          # ITN only
+# w_[3] <- 1                                              # SMC only
+# w_[4] <- 1 - phi_bednets + phi_bednets * s_itn          # ITN + SMC
+# w_[5] <- 1                                              # ATN only
+# w_[6] <- 1 - phi_bednets + phi_bednets * s_itn          # ITN + ATN
+# w_[7] <- 1                                              # SMC + ATN
+# w_[8] <- 1 - phi_bednets + phi_bednets * s_itn          # ITN + SMC + ATN
+# w[] <- w_[i]
+# dim(w) <- num_int
+#
+# # ---------------- REPELLENCY EFFECTS -----------------
+# # z[i] = probability mosquito is repelled during feeding attempt
+# # (ATNs assumed to have none)
+# dim(z_) <- 8
+# z_[1] <- 0
+# z_[2] <- phi_bednets * r_itn
+# z_[3] <- 0
+# z_[4] <- phi_bednets * r_itn
+# z_[5] <- 0
+# z_[6] <- phi_bednets * r_itn
+# z_[7] <- 0
+# z_[8] <- phi_bednets * r_itn
+# z[] <- z_[i]
+# dim(z) <- num_int
+#
+# # ---------------- WEIGHTED AVERAGES -----------------
+# dim(zhi) <- num_int
+# dim(whi) <- num_int
+# zhi[1:num_int] <- cov[i] * z[i]
+# whi[1:num_int] <- cov[i] * w[i]
+# zh <- sum(zhi)
+# wh <- sum(whi)
+#
+# # Average probability mosquito retries or succeeds on a feeding attempt
+# zbar <- Q0 * zh
+# wbar <- 1 - Q0 + Q0 * wh
+#
+# # Adjusted probabilities with interventions
+# p1 <- wbar * p10 / (1 - zbar * p10)
+# Q <- 1 - (1 - Q0) / wbar   # updated anthropophagy
+# av <- fv * Q               # biting rate on humans
+#
+# # Category-specific human-biting rate
+# dim(av_mosq) <- num_int
+# av_mosq[1:num_int] <- av * w[i] / wh
+
+
+################## ATN COVERAGE TRACKING #######################
+
+# # Parameters from R
+# p_atn   <- parameter()
+# phi_atn <- parameter()
+
+# Daily ATN coverage vector
+# dim(atn_cov_daily) <- n_days + 1
+# atn_cov_daily <- parameter()
+#
+# # Coverage at current time
+# Q_atn <- atn_cov_daily[as.integer(time) + 1]
+
+# # Probability mosquito is exposed to antimalarial drug
+# delta_atn <- p_atn * phi_atn * Q_atn
+#
+# # Dummy state so odin2 retains variable
+# initial(atn_debug) <- 0
+# update(atn_debug)  <- delta_atn
+
 
 
 ##------------------------------------------------------------------------------

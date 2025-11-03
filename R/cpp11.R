@@ -324,6 +324,114 @@ dust2_filter_malariasimple_deterministic_set_rng_state <- function(ptr, r_rng_st
   .Call(`_malariasimple_dust2_filter_malariasimple_deterministic_set_rng_state`, ptr, r_rng_state)
 }
 
+dust2_system_malariasimple_eip_deterministic_alloc <- function(r_pars, r_time, r_time_control, r_n_particles, r_n_groups, r_seed, r_deterministic, r_n_threads) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_alloc`, r_pars, r_time, r_time_control, r_n_particles, r_n_groups, r_seed, r_deterministic, r_n_threads)
+}
+
+dust2_system_malariasimple_eip_deterministic_run_to_time <- function(ptr, r_time) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_run_to_time`, ptr, r_time)
+}
+
+dust2_system_malariasimple_eip_deterministic_state <- function(ptr, r_index_state, r_index_particle, r_index_group, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_state`, ptr, r_index_state, r_index_particle, r_index_group, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_system_malariasimple_eip_deterministic_time <- function(ptr) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_time`, ptr)
+}
+
+dust2_system_malariasimple_eip_deterministic_set_state_initial <- function(ptr) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_set_state_initial`, ptr)
+}
+
+dust2_system_malariasimple_eip_deterministic_set_state <- function(ptr, r_state) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_set_state`, ptr, r_state)
+}
+
+dust2_system_malariasimple_eip_deterministic_reorder <- function(ptr, r_index) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_reorder`, ptr, r_index)
+}
+
+dust2_system_malariasimple_eip_deterministic_rng_state <- function(ptr) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_rng_state`, ptr)
+}
+
+dust2_system_malariasimple_eip_deterministic_set_rng_state <- function(ptr, r_rng_state) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_set_rng_state`, ptr, r_rng_state)
+}
+
+dust2_system_malariasimple_eip_deterministic_set_time <- function(ptr, r_time) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_set_time`, ptr, r_time)
+}
+
+dust2_system_malariasimple_eip_deterministic_update_pars <- function(ptr, pars) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_update_pars`, ptr, pars)
+}
+
+dust2_system_malariasimple_eip_deterministic_simulate <- function(ptr, r_times, r_index_state, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_simulate`, ptr, r_times, r_index_state, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_unfilter_malariasimple_eip_deterministic_alloc <- function(r_pars, r_time_start, r_time, r_time_control, r_data, r_n_particles, r_n_groups, r_n_threads) {
+  .Call(`_malariasimple_dust2_unfilter_malariasimple_eip_deterministic_alloc`, r_pars, r_time_start, r_time, r_time_control, r_data, r_n_particles, r_n_groups, r_n_threads)
+}
+
+dust2_filter_malariasimple_eip_deterministic_alloc <- function(r_pars, r_time_start, r_time, r_time_control, r_data, r_n_particles, r_n_groups, r_n_threads, r_seed) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_alloc`, r_pars, r_time_start, r_time, r_time_control, r_data, r_n_particles, r_n_groups, r_n_threads, r_seed)
+}
+
+dust2_system_malariasimple_eip_deterministic_compare_data <- function(ptr, r_data, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_system_malariasimple_eip_deterministic_compare_data`, ptr, r_data, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_unfilter_malariasimple_eip_deterministic_update_pars <- function(ptr, r_pars, r_index_group) {
+  .Call(`_malariasimple_dust2_unfilter_malariasimple_eip_deterministic_update_pars`, ptr, r_pars, r_index_group)
+}
+
+dust2_unfilter_malariasimple_eip_deterministic_run <- function(ptr, r_initial, save_trajectories, save_snapshots, adjoint, r_index_state, r_index_group, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_unfilter_malariasimple_eip_deterministic_run`, ptr, r_initial, save_trajectories, save_snapshots, adjoint, r_index_state, r_index_group, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_unfilter_malariasimple_eip_deterministic_last_trajectories <- function(ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_unfilter_malariasimple_eip_deterministic_last_trajectories`, ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_unfilter_malariasimple_eip_deterministic_last_snapshots <- function(ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_unfilter_malariasimple_eip_deterministic_last_snapshots`, ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_unfilter_malariasimple_eip_deterministic_last_state <- function(ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_unfilter_malariasimple_eip_deterministic_last_state`, ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_filter_malariasimple_eip_deterministic_update_pars <- function(ptr, r_pars, r_index_group) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_update_pars`, ptr, r_pars, r_index_group)
+}
+
+dust2_filter_malariasimple_eip_deterministic_run <- function(ptr, r_initial, save_trajectories, save_snapshots, adjoint, index_state, index_group, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_run`, ptr, r_initial, save_trajectories, save_snapshots, adjoint, index_state, index_group, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_filter_malariasimple_eip_deterministic_last_trajectories <- function(ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_last_trajectories`, ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_filter_malariasimple_eip_deterministic_last_snapshots <- function(ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_last_snapshots`, ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_filter_malariasimple_eip_deterministic_last_state <- function(ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_last_state`, ptr, select_random_particle, preserve_particle_dimension, preserve_group_dimension)
+}
+
+dust2_filter_malariasimple_eip_deterministic_rng_state <- function(ptr) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_rng_state`, ptr)
+}
+
+dust2_filter_malariasimple_eip_deterministic_set_rng_state <- function(ptr, r_rng_state) {
+  .Call(`_malariasimple_dust2_filter_malariasimple_eip_deterministic_set_rng_state`, ptr, r_rng_state)
+}
+
 dust2_system_malariasimple_stochastic_alloc <- function(r_pars, r_time, r_time_control, r_n_particles, r_n_groups, r_seed, r_deterministic, r_n_threads) {
   .Call(`_malariasimple_dust2_system_malariasimple_stochastic_alloc`, r_pars, r_time, r_time_control, r_n_particles, r_n_groups, r_seed, r_deterministic, r_n_threads)
 }
