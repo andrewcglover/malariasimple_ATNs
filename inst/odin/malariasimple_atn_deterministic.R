@@ -357,15 +357,23 @@ p_det[,,] <- d1 + (1-d1)/(1 + fd[i]*(ID[i,j,k]/ID0)^kD)
 # See supplementary materials S1 from http://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1000324#s6
 
 # Sv - Susceptible mosquitoes
-# Pv - Latently infected (Pre-Infectious?) mosquitoes. Number of compartments used to simulate delay in becoming infectious
+# Pv - Latently infected mosquitoes (Pv is from original version with a single compartment).
+# Ev - Latently infected mosquitoes (Ev indicates the explict use of multiple compartments).
 # Iv - Infectious mosquitoes
+
+# Number of pre-infectious compartments (Erlang approximation to sporogony)
+spor_len <- parameter()
+
+# Mosquito states
+dim(Ev) <- spor_len
 
 # initial state values:
 init_Sv <- parameter()
 init_Pv <- parameter()
 init_Iv <- parameter()
 initial(Sv) <- init_Sv * mv0
-initial(Pv) <- init_Pv * mv0
+#initial(Pv) <- init_Pv * mv0
+initial(Ev[1:spor_len]) <- init_Pv * mv0 / spor_len
 initial(Iv) <- init_Iv * mv0
 
 # cA is the infectiousness to mosquitoes of humans in the asmyptomatic compartment broken down
@@ -416,12 +424,17 @@ surv <- exp(-mu*delayMos_use)
 betaa <- 0.5*PL/dPL
 
 update(Sv) <- if(Sv + dt*(-ince - mu*Sv + betaa) < 0) 0 else Sv + dt*(-ince - mu*Sv + betaa)
-update(Pv) <- if(Pv + dt*(ince - incv - mu*Pv) < 0) 0 else Pv + dt*(ince - incv - mu*Pv)
+#update(Pv) <- if(Pv + dt*(ince - incv - mu*Pv) < 0) 0 else Pv + dt*(ince - incv - mu*Pv)
+update(Ev[1]) <- if (Ev[1] + dt*(ince - (spor_len/delayMos)*Ev[1] - mu*Ev[1]) < 0) 0 else Ev[1] + dt*(ince - (spor_len/delayMos)*Ev[1] - mu*Ev[1])
+update(Ev[2:spor_len]) <- if (Ev[i] + dt*((spor_len/delayMos)*Ev[i-1] - (spor_len/delayMos)*Ev[i] - mu*Ev[i]) < 0) 0 else Ev[i] + dt*((spor_len/delayMos)*Ev[i-1] - (spor_len/delayMos)*Ev[i] - mu*Ev[i])
 update(Iv) <- if(Iv + dt*(incv - mu*Iv) < 0) 0 else Iv + dt*(incv - mu*Iv)
 
 # Total mosquito population
 initial(mv) <- 0
-update(mv) <- Sv+Pv+Iv
+#update(mv) <- Sv+Pv+Iv
+update(mv) <- Sv + sum(Ev[]) + Iv
+initial(Evtot) <- 0
+update(Evtot) <- sum(Ev[])
 
 ##------------------------------------------------------------------------------
 ###################

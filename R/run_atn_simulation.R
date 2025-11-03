@@ -39,11 +39,18 @@ run_atn_simulation <- function(params, n_particles = 1, full_output = FALSE){
 
   #Only output select variables (unless requested otherwise)
   if(!full_output){
-    selected_cols <- c("time","EIR_mean","natural_deaths","mu_mosq",
-                       grep("_count$", colnames(out), value = TRUE),
-                       "ica_mean","icm_mean","ib_mean", "id_mean",
-                       grep("^n_", colnames(out), value = TRUE),
-                       "EL","LL","PL","Sv","Pv","Iv","mv")
+    # selected_cols <- c("time","EIR_mean","natural_deaths","mu_mosq",
+    #                    grep("_count$", colnames(out), value = TRUE),
+    #                    "ica_mean","icm_mean","ib_mean", "id_mean",
+    #                    grep("^n_", colnames(out), value = TRUE),
+    #                    "EL","LL","PL","Sv","Pv","Iv","mv")
+    selected_cols <- c(
+      "time", "EIR_mean", "natural_deaths", "mu_mosq",
+      grep("_count$", colnames(out), value = TRUE),
+      "ica_mean", "icm_mean", "ib_mean", "id_mean",
+      grep("^n_", colnames(out), value = TRUE),
+      "EL", "LL", "PL", "Sv", "Evtot", "Iv", "mv"
+    )
     if(n_particles == 1){
       out <- out[,selected_cols]
     } else {

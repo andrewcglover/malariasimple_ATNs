@@ -147,6 +147,8 @@ get_parameters <- function(
     chi = 0.86,
     phi_bednets = 0.85,
     phi_indoors = 0.9,
+    # Erlang EIP
+    spor_len = 10,
     # larval parameters daily density dependent mortality rate of egg
     muEL = 0.0338,
     muLL = 0.0348,
@@ -285,6 +287,9 @@ get_parameters <- function(
   params$Surv0 <- exp(-mum * delayMos) # probability of surviving incubation period
   params$p10 <- exp(-mum * foraging_time)  # probability of surviving one feeding cycle
   params$p2 <- exp(-mum * gonotrophic_cycle)  # probability of surviving one resting cycle
+
+  # Erlang EIP
+  params$spor_len <- spor_len # number of latently-infected mosquito compartments
 
   # larval parameters
   params$muEL <- muEL
