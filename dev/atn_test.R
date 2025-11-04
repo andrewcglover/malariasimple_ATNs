@@ -15,12 +15,12 @@ out_det <- run_simulation(params_det)
 # --- Extract and align variables ---
 t <- out_atn[, "time"]
 
-Evtot <- out_atn[, "Sv"]
+Evtot <- out_atn[, "Svtot"]
 Pv <- out_det[, "Sv"]
-Evtot <- out_atn[, "Iv"]
-Pv <- out_det[, "Iv"]
-Evtot <- out_atn[, "Evtot"]
-Pv <- out_det[, "Pv"]
+# Evtot <- out_atn[, "Ivtot"]
+# Pv <- out_det[, "Iv"]
+# Evtot <- out_atn[, "Evtot"]
+# Pv <- out_det[, "Pv"]
 
 # --- Plot setup: leave room for legend on the right ---
 #op <- par(no.readonly = TRUE)

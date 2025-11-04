@@ -49,7 +49,7 @@ run_atn_simulation <- function(params, n_particles = 1, full_output = FALSE){
       grep("_count$", colnames(out), value = TRUE),
       "ica_mean", "icm_mean", "ib_mean", "id_mean",
       grep("^n_", colnames(out), value = TRUE),
-      "EL", "LL", "PL", "Sv", "Evtot", "Iv", "mv"
+      "EL", "LL", "PL", "Svtot", "Evtot", "Ivtot", "mv", "Q_atn"
     )
     if(n_particles == 1){
       out <- out[,selected_cols]

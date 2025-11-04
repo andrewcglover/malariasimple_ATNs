@@ -240,7 +240,7 @@ foi_age <- parameter()
 dim(rel_foi) <- nh
 rel_foi <- parameter()
 dim(EIR) <- c(na,nh,num_int)
-EIR[,,] <- av_mosq[k] * rel_foi[j] * foi_age[i] * Iv/omega
+EIR[,,] <- av_mosq[k] * rel_foi[j] * foi_age[i] * Ivtot/omega
 
 ##------------------------------------------------------------------------------
 #####################
@@ -361,25 +361,66 @@ p_det[,,] <- d1 + (1-d1)/(1 + fd[i]*(ID[i,j,k]/ID0)^kD)
 # Ev - Latently infected mosquitoes (Ev indicates the explict use of multiple compartments).
 # Iv - Infectious mosquitoes
 
-# Number of pre-infectious compartments (Erlang approximation to sporogony)
-spor_len <- parameter()
+# # Number of pre-infectious compartments (Erlang approximation to sporogony)
+# spor_len <- parameter()
+#
+# # Number of ATN-exposed compartments
+# deltaq <- parameter()
+# deltaqp1 <- deltaq + 1 # ATN-exposed compartments plus non-exposed
+
+# Number of ATN-exposed compartments (compile-time constants)
+deltaq     <- parameter(type = "integer", constant = TRUE)
+deltaqp1 <- parameter(type = "integer", constant = TRUE)
+spor_len   <- parameter(type = "integer", constant = TRUE)
+
+# Core parameters
+gamma_atn  <- parameter()
+xi         <- parameter()
+zeta       <- parameter()
+Lambda     <- FOIvdel                # baseline FOI
+Lambda00sf <- parameter()            # scale factor for Λ₀⁰
+Lambda00   <- Lambda * Lambda00sf    # Λ₀⁰ = Λ * scale factor
+rho        <- spor_len / delayMos    # baseline EIP rate
+rho00      <- parameter()            # ρ₀⁰
+
+# Λ₀(τ) and ρ₀(τ): functions of time since ATN distribution
+Lambda0_t <- if (time < t0_atn) Lambda else Lambda - (Lambda - Lambda00) * exp(-gamma_atn * (time - t0_atn))
+rho0_t    <- if (time < t0_atn) rho    else rho    - (rho    - rho00)    * exp(-gamma_atn * (time - t0_atn))
+
+# --- Decay of ATN effect across mosquito compartments (eqs. 9–10) ---
+
+# Λᵢ(s;τ) = Λ - (Λ - Λ₀(τ)) * exp(-ξ * s)
+# ρᵢ(s;τ) = ρ - (ρ - ρ₀(τ)) * exp(-ζ * s)
+# where s = i - 0.5  (midpoint of day for compartment i)
+
+dim(Lambda_i) <- deltaqp1
+dim(rho_i)    <- deltaqp1
+Lambda_i[] <- Lambda - (Lambda - Lambda0_t) * exp(-xi   * (i - 0.5))
+rho_i[]    <- rho    - (rho    - rho0_t)    * exp(-zeta * (i - 0.5))
+
 
 # Mosquito states
-dim(Ev) <- spor_len
+dim(Sv) <- deltaqp1
+dim(Ev) <- c(deltaqp1, spor_len)
+dim(Iv) <- deltaqp1
 
 #initial state values:
 init_Sv <- parameter()
 init_Pv <- parameter()
 init_Iv <- parameter()
-initial(Sv) <- init_Sv * mv0
+initial(Sv[1]) <- init_Sv * mv0
+initial(Sv[2:deltaqp1]) <- 0
 #initial(Pv) <- init_Pv * mv0
 #initial(Ev[1:spor_len]) <- init_Pv * mv0 / spor_len
-kappa <- spor_len / delayMos
-Ev_ratio <- kappa / (kappa + mu)
+#rho <- spor_len / delayMos
+kappa <- 1 / deltaq
+Ev_ratio <- rho / (rho + mu)
 Ev_norm_factor <- (1 - Ev_ratio^spor_len) / (1 - Ev_ratio)
 E1_eq <- init_Pv * mv0 / Ev_norm_factor
-initial(Ev[1:spor_len]) <- E1_eq * Ev_ratio^(i - 1)
-initial(Iv) <- init_Iv * mv0
+initial(Ev[1,]) <- E1_eq * Ev_ratio^(j - 1)
+initial(Ev[2:deltaqp1,]) <- 0
+initial(Iv[1]) <- init_Iv * mv0
+initial(Iv[2:deltaqp1]) <- 0
 
 # cA is the infectiousness to mosquitoes of humans in the asmyptomatic compartment broken down
 # by age/het/int category, infectiousness depends on p_det which depends on detection immunity
@@ -407,42 +448,110 @@ FOIvijk[1:na, 1:nh, 1:num_int] <- ((cT*smc_rel_c_mask[i,j,k]*T[i,j,k] + cD*smc_r
   rel_foi[j] * av_mosq[k]*foi_age[i]/omega ## For discrete human compartments
 lag_FOIv=sum(FOIvijk)
 
-ince <- FOIv[lag_ratesMos] * lag_ratesMos/delayGam * Sv
+# FOIvdel is equivalent to ince/Sv under previous version
+# ince <- FOIv[lag_ratesMos] * lag_ratesMos/delayGam * Sv
+FOIvdel <- FOIv[lag_ratesMos] * lag_ratesMos/delayGam
 
 # Updated to account for explicit Erlang EIP
-#initial(ince_delay[]) <- FOIv_eq*init_Sv*mv0*delayMos_use/lag_ratesMos
-#dim(ince_delay) <- lag_ratesMos
-#
-#update(ince_delay[1]) <- ince_delay[1] + dt*(ince - (lag_ratesMos/delayMos_use)*ince_delay[1])
-#update(ince_delay[2:lag_ratesMos]) <- ince_delay[i] + dt*((lag_ratesMos/delayMos_use)*ince_delay[i-1] -
-#                                                            (lag_ratesMos/delayMos_use)*ince_delay[i])
-#
-#incv <- ince_delay[lag_ratesMos]*lag_ratesMos/delayMos_use * surv
-
-incv <- (spor_len / delayMos) * Ev[spor_len] #* surv
 
 # Current hum->mos FOI depends on the number of individuals now producing gametocytes (12 day lag)
 delayGam <- parameter()
 delayMos <- parameter()
-#delayMos_use <- delayMos
-# Number of mosquitoes that become infected at each time point
-#surv <- exp(-mu*delayMos_use)
 
 # Number of mosquitoes born (depends on PL, number of larvae), or is constant outside of seasonality
 betaa <- 0.5*PL/dPL
 
-update(Sv) <- if(Sv + dt*(-ince - mu*Sv + betaa) < 0) 0 else Sv + dt*(-ince - mu*Sv + betaa)
-#update(Pv) <- if(Pv + dt*(ince - incv - mu*Pv) < 0) 0 else Pv + dt*(ince - incv - mu*Pv)
-update(Ev[1]) <- if (Ev[1] + dt*(ince - kappa*Ev[1] - mu*Ev[1]) < 0) 0 else Ev[1] + dt*(ince - kappa*Ev[1] - mu*Ev[1])
-update(Ev[2:spor_len]) <- if (Ev[i] + dt*(kappa*Ev[i-1] - kappa*Ev[i] - mu*Ev[i]) < 0) 0 else Ev[i] + dt*(kappa*Ev[i-1] - kappa*Ev[i] - mu*Ev[i])
-update(Iv) <- if(Iv + dt*(incv - mu*Iv) < 0) 0 else Iv + dt*(incv - mu*Iv)
+# dim(dSv) <- deltaqp1
+# dSv[1] <- dt * (betaa + kappa*Sv[deltaqp1] - (av*delta_atn + (1-delta_atn)*FOIvdel + mu)*Sv[1])
+# dSv[2] <- dt * (delta_atn*(av-FOIvdel)*Svtot - (av*delta_atn + (1-delta_atn)*FOIvdel + kappa + mu)*Sv[2])
+# dSv[3:deltaqp1] <- dt * (kappa*Sv[i-1] - (av*delta_atn + (1-delta_atn)*FOIvdel + kappa + mu)*Sv[i])
+
+# Susceptible: dS0/dt, dS1/dt, dSi/dt (latex eqs. for S)
+dim(dSv) <- deltaqp1
+dSv[1] <- dt * ( betaa + kappa*Sv[deltaqp1] - (av*delta_atn + (1 - delta_atn)*Lambda + mu) * Sv[1] )
+dSv[2] <- dt * ( delta_atn*(av - Lambda0_t)*Svtot - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
+dSv[3:deltaqp1] <- dt * ( kappa*Sv[i-1] - (av*delta_atn + (1 - delta_atn)*Lambda_i[i] + kappa + mu) * Sv[i] )
+update(Sv[]) <- if (Sv[i] + dSv[i] < 0) 0 else Sv[i] + dSv[i]
+
+
+# dim(dEv) <- c(deltaqp1, spor_len)
+# dEv[1,1] <- dt * (kappa*Ev[deltaqp1] + (1-delta_atn)*FOIvdel*Sv[1] - (av*delta_atn + rho + mu)*Ev[1,1])
+# dEv[2,1] <- dt * (av*delta_atn*Ev + (1-delta_atn)*FOIvdel*Sv[i] - (av*delta_atn + rho + mu)*Ev[i,1])
+#
+# dEv[,2:spor_len] <- dt * (kappa*Ev[i,j-1] - kappa*Ev[i,j] - mu*Ev[i,j])
+
+dim(Ecol) <- spor_len
+Ecol[1:spor_len] <- sum(Ev[,i])
+dim(dEv) <- c(deltaqp1, spor_len)
+
+# E_0^1 (i=1, j=1)
+dEv[1,1] <- dt * ( kappa*Ev[deltaqp1,1] + (1 - delta_atn)*Lambda*Sv[1] - (av*delta_atn +      rho      + mu) * Ev[1,1] )
+
+# E_1^1 (i=2, j=1)
+dEv[2,1] <- dt * ( av*delta_atn*Ecol[1] + delta_atn*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
+                   - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,1] )
+
+# E_i^1 (i >= 3, j=1)
+dEv[3:deltaqp1,1] <- dt * ( kappa*Ev[i-1,1] + (1 - delta_atn)*Lambda_i[i]*Sv[i]
+                            - (av*delta_atn + kappa + rho_i[i] + mu) * Ev[i,1] )
+
+# E_0^j (i=1, j=2..)
+dEv[1,2:spor_len] <- dt * ( kappa*Ev[deltaqp1,j] +      rho      *Ev[1,j-1]
+                            - (av*delta_atn +      rho      + mu) * Ev[1,j] )
+
+# E_1^j (i=2, j=2..)
+dEv[2,2:spor_len] <- dt * ( av*delta_atn*Ecol[j] + rho_i[2]*Ev[2,j-1]
+                            - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,j] )
+
+# E_i^j (i >= 3, j=2..)
+dEv[3:deltaqp1,2:spor_len] <- dt * ( kappa*Ev[i-1,j] + rho_i[i]*Ev[i,j-1]
+                                     - (av*delta_atn + kappa + rho_i[i] + mu) * Ev[i,j] )
+
+update(Ev[,]) <- if (Ev[i,j] + dEv[i,j] < 0) 0 else Ev[i,j] + dEv[i,j]
+
+
+#
+# dim(dIv) <- deltaqp1
+# dIv[] <- dt * (kappa*Ev[i,spor_len] - mu*Iv[i])
+# current total infectious I = sum_i I_i (needed for the i=2 row)
+Itot <- sum(Iv[])
+
+dim(dIv) <- deltaqp1
+# i = 1  (unexposed row; baseline rho)
+dIv[1] <- dt * ( kappa*Iv[deltaqp1] + rho*Ev[1, spor_len] - (av*delta_atn + mu) * Iv[1] )
+
+# i = 2  (exposed 1 day ago; concurrent term αδ I + rho_1 E_1^Δr)
+dIv[2] <- dt * ( av*delta_atn*Itot + rho_i[2]*Ev[2, spor_len]
+                 - (av*delta_atn + kappa + mu) * Iv[2] )
+
+# i >= 3  (exposed ≥2 days ago; conveyor κ from previous ATN row + rho_i E_i^Δr)
+dIv[3:deltaqp1] <- dt * ( kappa*Iv[i-1] + rho_i[i]*Ev[i, spor_len]
+                          - (av*delta_atn + kappa + mu) * Iv[i] )
+
+update(Iv[]) <- if (Iv[i] + dIv[i] < 0) 0 else Iv[i] + dIv[i]
+
+#
+# update(Sv[]) <- if(Sv[i] + dSv[i] < 0) 0 else Sv[i] + dSv[i]
+# update(Ev[,]) <- if (Ev[i,j] + dEv[i,j] < 0) 0 else Ev[i,j] + dEv[i,j]
+# update(Iv[]) <- if(Iv[i] + dIv[i] < 0) 0 else Iv[i] + dIv[i]
 
 # Total mosquito population
-initial(mv) <- 0
-#update(mv) <- Sv+Pv+Iv
-update(mv) <- Sv + sum(Ev[]) + Iv
+initial(Svtot) <- 0
+update(Svtot) <- sum(Sv[])
+
+# dim(Evi) <- spor_len
+# initial(Evi[]) <- 0
+# update(Evi[]) <- sum(Ev[,i])
+
 initial(Evtot) <- 0
-update(Evtot) <- sum(Ev[])
+update(Evtot) <- sum(Ev[,])
+
+initial(Ivtot) <- 0
+update(Ivtot) <- sum(Iv[])
+
+initial(mv) <- 0
+update(mv) <- Svtot + Evtot + Ivtot
+
 
 ##------------------------------------------------------------------------------
 ###################
@@ -597,12 +706,8 @@ lambda_atn <- parameter()
 p_atn      <- parameter()
 phi_atn    <- phi_bednets
 
-# Internal time tracker
-initial(tt) <- 0
-update(tt)  <- tt + dt
-
 # ATN coverage (analytic function)
-Q_atn_t <- if (tt < t0_atn) 0 else Q0_atn * exp(-lambda_atn * (tt - t0_atn))
+Q_atn_t <- if (time < t0_atn) 0 else Q0_atn*exp(-lambda_atn*(time - t0_atn))
 
 # Probability mosquito is exposed to antimalarial drugs on attempted bite
 delta_atn <- p_atn * phi_atn * Q_atn_t
@@ -616,8 +721,7 @@ update(Q_atn)  <- Q_atn_t
 initial(atn_debug) <- 0
 update(atn_debug)  <- delta_atn
 
-
-
+# Update
 
 
 ################## GENERAL INTERVENTION PARAMETERS #######################

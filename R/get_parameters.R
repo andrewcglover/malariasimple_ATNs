@@ -163,6 +163,12 @@ get_parameters <- function(
     Q0_atn     = 0.9,  # initial coverage right after distribution
     lambda_atn = 0.0017, # mean loss rate (1 / mean duration)
     p_atn      = 0.9,  # prob(exposure | hits a net)
+    deltaq     = 10,   # number of ATN-exposed compartments
+    gamma_atn  = 0.000719,
+    xi         = 0.3,
+    zeta       = 0.1386294,
+    Lambda00sf = 0.01,
+    rho00     = 0.2,
     # intervention parameters
     daily_ft = 0,
     clin_inc_rendering_min_ages = NULL,
@@ -301,6 +307,13 @@ get_parameters <- function(
   params$Q0_atn     <- Q0_atn  # initial coverage right after distribution
   params$lambda_atn <- lambda_atn # mean loss rate (1 / mean duration)
   params$p_atn      <- p_atn  # prob(exposure | hits a net)
+  params$deltaq     <- deltaq # number of ATN-exposed compartments
+  params$deltaqp1   <- deltaq + 1
+  params$gamma_atn  <- gamma_atn
+  params$xi         <- xi
+  params$zeta       <- zeta
+  params$Lambda00sf <- Lambda00sf
+  params$rho00     <- rho00
 
   # larval parameters
   params$muEL <- muEL
