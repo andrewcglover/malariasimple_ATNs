@@ -472,7 +472,7 @@ betaa <- 0.5*PL/dPL
 # Susceptible: dS0/dt, dS1/dt, dSi/dt (latex eqs. for S)
 dim(dSv) <- deltaqp1
 dSv[1] <- dt * ( betaa + kappa*Sv[deltaqp1] - (av*delta_atn + (1 - delta_atn)*Lambda + mu) * Sv[1] )
-dSv[2] <- dt * ( delta_atn*(av - Lambda0_t)*Svtot - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
+dSv[2] <- dt * ( delta_atn*(av*(1-dn_atn) - Lambda0_t)*Svtot - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
 dSv[3:deltaqp1] <- dt * ( kappa*Sv[i-1] - (av*delta_atn + (1 - delta_atn)*Lambda_i[i] + kappa + mu) * Sv[i] )
 update(Sv[]) <- if (Sv[i] + dSv[i] < 0) 0 else Sv[i] + dSv[i]
 
@@ -491,7 +491,7 @@ dim(dEv) <- c(deltaqp1, spor_len)
 dEv[1,1] <- dt * ( kappa*Ev[deltaqp1,1] + (1 - delta_atn)*Lambda*Sv[1] - (av*delta_atn +      rho      + mu) * Ev[1,1] )
 
 # E_1^1 (i=2, j=1)
-dEv[2,1] <- dt * ( av*delta_atn*Ecol[1] + delta_atn*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
+dEv[2,1] <- dt * ( av*delta_atn*(1-dn_atn)*Ecol[1] + delta_atn*(1-dn_atn)*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
                    - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,1] )
 
 # E_i^1 (i >= 3, j=1)
@@ -524,7 +524,7 @@ dim(dIv) <- deltaqp1
 dIv[1] <- dt * ( kappa*Iv[deltaqp1] + rho*Ev[1, spor_len] - (av*delta_atn + mu) * Iv[1] )
 
 # i = 2  (exposed 1 day ago; concurrent term αδ I + rho_1 E_1^Δr)
-dIv[2] <- dt * ( av*delta_atn*Itot + rho_i[2]*Ev[2, spor_len]
+dIv[2] <- dt * ( av*delta_atn*(1-dn_atn)*Itot + rho_i[2]*Ev[2, spor_len]
                  - (av*delta_atn + kappa + mu) * Iv[2] )
 
 # i >= 3  (exposed ≥2 days ago; conveyor κ from previous ATN row + rho_i E_i^Δr)

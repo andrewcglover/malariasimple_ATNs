@@ -72,7 +72,7 @@ for (eir in eir_levels) {
                 gamman =   2.64 * 365,
                 retention =  588,
                 dn0 = 0,
-                rn  = 0.56,
+                rn  = 0.24,#56,
                 rnm = 0.24) |>
     set_equilibrium(init_EIR = eir)
 
@@ -157,25 +157,26 @@ for (eir in eir_levels) {
     df_cfp$base_clin_inc_0_Inf <- df_base$n_clin_inc_0_Inf
 
     # ----- Pyr-ATN -----
-    pars_pyratn <- filter(only_med, resistance == res)
-    df_pyratn <- run_atn_simulation(
+    #pars_pyratn1 <- filter(only_med, resistance == res)
+    df_pyratn1 <- run_aitn_simulation(
       get_parameters(n_days = n_steps, spor_len = 12,
-                     gamma_atn = (log(2) / (2.64 * 365))) |>
+                     gamma_atn = (log(2) / (2.64 * 365)),
+                     dn0_atn = pars_only$dn0) |>
         set_bednets(
           days = 1095, coverages = 0.9,
           gamman = pars_only$gamman * 365,
-          retention = 588, dn0 = pars_only$dn0,
+          retention = 588, dn0 = 0, #pars_only$dn0,
           rn = pars_only$rn0, rnm = 0.24
         ) |>
         set_equilibrium(init_EIR = eir)
     ) |>
       as.data.frame() |>
       mutate(
-        model = "ITN", itn_type = "Pyr-ATN",
+        model = "ITN", itn_type = "Pyr-ATNv1",
         resistance = res, EIR = eir,
         pfpr2to10 = n_detect_730_3650 / n_730_3650
       )
-    df_pyratn$base_clin_inc_0_Inf <- df_base$n_clin_inc_0_Inf
+    df_pyratn1$base_clin_inc_0_Inf <- df_base$n_clin_inc_0_Inf
     #
     # pars_pyratn <- get_parameters(n_days = n_steps,
     #                                spor_len = 12,
@@ -199,10 +200,32 @@ for (eir in eir_levels) {
     #     EIR       = eir
     #   )
 
+    # ----- Pyr-ATN -----
+    #pars_indeppyratn <- filter(only_med, resistance == res)
+    df_pyratn0 <- run_atn_simulation(
+      get_parameters(n_days = n_steps, spor_len = 12,
+                     gamma_atn = (log(2) / (2.64 * 365))) |>
+        set_bednets(
+          days = 1095, coverages = 0.9,
+          gamman = pars_only$gamman * 365,
+          retention = 588, dn0 = pars_only$dn0,
+          rn = pars_only$rn0, rnm = 0.24
+        ) |>
+        set_equilibrium(init_EIR = eir)
+    ) |>
+      as.data.frame() |>
+      mutate(
+        model = "ITN", itn_type = "Pyr-ATNv0",
+        resistance = res, EIR = eir,
+        pfpr2to10 = n_detect_730_3650 / n_730_3650
+      )
+    df_pyratn0$base_clin_inc_0_Inf <- df_base$n_clin_inc_0_Inf
+
     all_runs[[length(all_runs) + 1]] <- df_only
     all_runs[[length(all_runs) + 1]] <- df_pbo
     all_runs[[length(all_runs) + 1]] <- df_cfp
-    all_runs[[length(all_runs) + 1]] <- df_pyratn
+    all_runs[[length(all_runs) + 1]] <- df_pyratn0
+    all_runs[[length(all_runs) + 1]] <- df_pyratn1
   }
 
   all_runs[[length(all_runs) + 1]] <- df_atn_rep
@@ -231,8 +254,8 @@ ggplot(df_plot, aes(x = time, y = pfpr2to10, color = itn_type)) +
 
 eir_labels <- c(
   `0.5`   = "Low transmission",
-  `3`  = "Moderate transmission",
-  `20` = "High transmission"
+  `4`  = "Moderate transmission",
+  `30` = "High transmission"
 )
 
 res_pct_labeller <- function(values) {
@@ -244,14 +267,15 @@ df_plot |>
   mutate(
     itn_type = factor(
       itn_type,
-      levels = c("Pyr-only", "Pyr-PBO", "Pyr-CFP", "Pyr-ATN", "ATN")
+      levels = c("Pyr-only", "Pyr-PBO", "Pyr-CFP", "Pyr-ATNv0", "Pyr-ATNv1", "ATN")
     ),
     year = (time - 1095) / 365
   ) |>
   filter(year >= -1) |>
   ggplot(aes(x = year, y = pfpr2to10, color = itn_type)) +
   geom_line() +
-  scale_color_viridis_d(option = "plasma", end = 0.95, direction = -1) +
+  scale_color_viridis_d(option = "turbo", begin = 0.1, end = 0.9, direction = -1) +
+  #scale_color_viridis_d(option = "magma", end = 0.8, direction = 1) +
   facet_grid(EIR ~ resistance,
              labeller = labeller(
                EIR = eir_labels,
@@ -272,14 +296,15 @@ df_plot |>
   mutate(
     itn_type = factor(
       itn_type,
-      levels = c("Pyr-only", "Pyr-PBO", "Pyr-CFP", "Pyr-ATN", "ATN")
+      levels = c("Pyr-only", "Pyr-PBO", "Pyr-CFP", "Pyr-ATNv0", "Pyr-ATNv1", "ATN")
     ),
     year = (time - 1095) / 365
   ) |>
   filter(year >= -1) |>
   ggplot(aes(x = year, y = avert_clin_inc_0_Inf, color = itn_type)) +
   geom_line(linewidth = 0.8) +
-  scale_color_viridis_d(option = "plasma", end = 0.95, direction = -1) +
+  scale_color_viridis_d(option = "turbo", begin = 0, end = 0.5, direction = -1) +
+  #scale_color_viridis_d(option = "plasma", end = 0.95, direction = -1) +
   facet_grid(EIR ~ resistance,
              labeller = labeller(
                EIR = eir_labels,
@@ -298,7 +323,7 @@ df_summary <- df_plot |>
   mutate(
     itn_type = factor(
       itn_type,
-      levels = c("Pyr-only", "Pyr-PBO", "Pyr-CFP", "Pyr-ATN", "ATN")
+      levels = c("Pyr-only", "Pyr-PBO", "Pyr-CFP", "Pyr-ATNv0", "Pyr-ATNv1", "ATN")
     ),
     year = (time - 1095) / 365
   ) |>
@@ -321,7 +346,7 @@ df_summary |>
     aes(label = scales::percent(avert_prop, accuracy = 0.1)),
     vjust = -0.5
   ) +
-  scale_fill_viridis_d(option = "plasma", end = 0.9, direction = -1) +
+  #scale_fill_viridis_d(option = "turbo", begin = 0, end = 0.5, direction = -1) +
   facet_grid(EIR ~ resistance,
              labeller = labeller(
                EIR = eir_labels,
@@ -337,5 +362,6 @@ df_summary |>
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
     axis.title.x = element_blank()
-  )
+  ) +
+  ylim(0, 1200)
 
