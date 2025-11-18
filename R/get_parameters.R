@@ -166,9 +166,10 @@ get_parameters <- function(
     deltaq     = 10,   # number of ATN-exposed compartments
     gamma_atn  = 0.000719,
     xi         = 0.3,
-    zeta       = 0.1386294,
+    zeta       = 0.1732868,#0.1386294,
     Lambda00sf = 0.01,
-    rho00     = 0.2,
+    rho00      = 0.2,
+    dn0_atn    = 0,
     # intervention parameters
     daily_ft = 0,
     clin_inc_rendering_min_ages = NULL,
@@ -314,6 +315,7 @@ get_parameters <- function(
   params$zeta       <- zeta
   params$Lambda00sf <- Lambda00sf
   params$rho00     <- rho00
+  params$dn0_atn    <- dn0_atn # initial probability of mortality from an ATN
 
   # larval parameters
   params$muEL <- muEL

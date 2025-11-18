@@ -3,6 +3,13 @@
 n_steps <- 365 * 9
 
 params_atn <- get_parameters(n_days = n_steps, spor_len = 10) |>
+  set_bednets(days = 1095,
+              coverages = 0.9,
+              gamman =   2.64 * 365,
+              retention =   588,
+              dn0 = 0,
+              rn = 0.56,
+              rnm = 0.24) |>
   set_equilibrium(init_EIR = 10)
 params_atn$max_atn_cov <- 0
 
