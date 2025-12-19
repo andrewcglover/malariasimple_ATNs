@@ -166,9 +166,9 @@ get_parameters <- function(
     deltaq     = 10,   # number of ATN-exposed compartments
     gamma_atn  = 0.000719,
     xi         = 0.3,
-    zeta       = 0.1732868,#0.1386294,
+    zeta       = 0.433217,#0.1732868,#0.1386294,
     Lambda00sf = 0.01,
-    rho00      = 0.2,
+    rho00      = 0.12, #2,
     dn0_atn    = 0,
     # intervention parameters
     daily_ft = 0,
