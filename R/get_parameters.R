@@ -159,17 +159,35 @@ get_parameters <- function(
     gammaL = 13.25,
     betaL = 21.2,
     # ATN parameters
-    t0_atn     = 1095,  # distribution time (days)
-    Q0_atn     = 0.9,  # initial coverage right after distribution
+    t0_atn     = 0,  # distribution time (days)
+    Q0_atn     = 0,  # initial coverage right after distribution
     lambda_atn = 0.0017, # mean loss rate (1 / mean duration)
     p_atn      = 0.9,  # prob(exposure | hits a net)
     deltaq     = 10,   # number of ATN-exposed compartments
-    gamma_atn  = 0.000719,
+    gamma_atn  = 0.000719, #log(2) / (2.64 * 365)
     xi         = 0.3,
     zeta       = 0.433217,#0.1732868,#0.1386294,
-    Lambda00sf = 0.01,
-    rho00      = 0.12, #2,
+    Lambda00sf = 0.0019  ,
+    #rho00      = 0.12, # superseeded by rho_frac
     dn0_atn    = 0,
+    # ATN pre-infection blocking Hill parameters
+    s_half_pre = 1.1539  ,
+    nH_pre     = 4.0229  ,
+    # ATN post-infection blocking Hill parameters
+    B_max_post  = 0.9981  ,
+    s_half_post = 0.6819  ,
+    nH_post     = 14.1709 ,
+    # ATN EIP lengthening Hill parameters
+    s_half_eip = 2.6735  ,
+    nH_eip     = 4.8142 ,
+    rho_frac    = 0.1340  ,
+    # ATN Bompard parameters
+    m_bompard = 0.000157,
+    k_bompard = 4.95e-6,
+    # ATN logic
+    use_bompard = TRUE,
+    use_eip_hill = TRUE,
+
     # intervention parameters
     daily_ft = 0,
     clin_inc_rendering_min_ages = NULL,
@@ -205,6 +223,17 @@ get_parameters <- function(
   if(!is.numeric(daily_ft)){stop(message("daily_ft may only contain numeric values between 0 and 1"))}
   if(any(daily_ft < 0 | daily_ft > 1)){stop(message("daily_ft may only contain numeric values between 0 and 1"))}
   if(length(daily_ft) < n_days && length(daily_ft) != 1){stop(message("daily_ft must be either scaler or at least as long as n_days"))}
+
+  # ATN distribution event checks. t0_atn and Q0_atn may be passed as
+  # scalars (a single distribution event) or as equal-length vectors
+  # (multiple events); each (t0_atn, Q0_atn) pair defines one ATN event.
+  if(!is.numeric(t0_atn) | !is.numeric(Q0_atn)){stop(message("t0_atn and Q0_atn must be numeric"))}
+  if(length(t0_atn) != length(Q0_atn)){stop(message("t0_atn and Q0_atn must be equal in length"))}
+  if(any(Q0_atn < 0 | Q0_atn > 1)){stop(message("Q0_atn may only contain values between 0 and 1"))}
+  if(any(t0_atn %% 1 != 0)){stop(message("t0_atn must contain integer values"))}
+  if(any(t0_atn < 0)){stop(message("t0_atn values must be non-negative"))}
+  if(any(diff(t0_atn) < 1)){stop(message("t0_atn values must be unique and in chronological order"))}
+  if(any(t0_atn > n_days)){stop(message("t0_atn values cannot exceed n_days"))}
 
   ###########################################
   # Define parameters
@@ -306,6 +335,7 @@ get_parameters <- function(
   # ATN parameters
   params$t0_atn     <- t0_atn  # distribution time (days)
   params$Q0_atn     <- Q0_atn  # initial coverage right after distribution
+  params$n_atn      <- length(t0_atn) # number of ATN distribution events (= length of t0_atn / Q0_atn)
   params$lambda_atn <- lambda_atn # mean loss rate (1 / mean duration)
   params$p_atn      <- p_atn  # prob(exposure | hits a net)
   params$deltaq     <- deltaq # number of ATN-exposed compartments
@@ -314,8 +344,25 @@ get_parameters <- function(
   params$xi         <- xi
   params$zeta       <- zeta
   params$Lambda00sf <- Lambda00sf
-  params$rho00     <- rho00
+  #params$rho00     <- rho00
   params$dn0_atn    <- dn0_atn # initial probability of mortality from an ATN
+
+  params$s_half_pre <- s_half_pre
+  params$nH_pre     <- nH_pre
+  # ATN post-infection blocking Hill parameters
+  params$B_max_post  <- B_max_post
+  params$s_half_post <- s_half_post
+  params$nH_post     <- nH_post
+  # ATN EIP lengthening Hill parameters
+  params$s_half_eip <- s_half_eip
+  params$nH_eip     <- nH_eip
+  params$rho_frac    <- rho_frac
+  # ATN Bomard parameters
+  params$m_bompard <- m_bompard
+  params$k_bompard <- k_bompard
+  # ATN logical parameters
+  params$use_bompard <- use_bompard
+  params$use_eip_hill <- use_eip_hill
 
   # larval parameters
   params$muEL <- muEL
