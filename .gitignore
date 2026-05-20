@@ -5,3 +5,19 @@
 inst/doc
 /doc/
 /Meta/
+
+# Outputs / artefacts in dev/
+dev/*.pdf
+dev/*.png
+dev/*.rds
+dev/*.RDS
+dev/*.csv
+
+# Outputs at the repo root
+*.pdf
+*.png
+*.RDS
+Rplot*.pdf
+
+# Other runtime droppings
+parallel_log.txt

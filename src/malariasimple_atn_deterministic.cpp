@@ -68,7 +68,7 @@
 // [[dust2::parameter(xi, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
 // [[dust2::parameter(zeta, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
 // [[dust2::parameter(Lambda00sf, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
-// [[dust2::parameter(rho00, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
+// [[dust2::parameter(rho_frac, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
 // [[dust2::parameter(init_Sv, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
 // [[dust2::parameter(init_Pv, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
 // [[dust2::parameter(init_Iv, type = "real_type", rank = 0, required = TRUE, constant = FALSE)]]
@@ -305,7 +305,7 @@ public:
     real_type xi;
     real_type zeta;
     real_type Lambda00sf;
-    real_type rho00;
+    real_type rho_frac;
     real_type init_Sv;
     real_type init_Pv;
     real_type init_Iv;
@@ -372,6 +372,7 @@ public:
     std::vector<real_type> init_IB;
     std::vector<real_type> init_ID;
     std::vector<real_type> age_vector;
+    real_type rho00;
     real_type p10;
     real_type p2;
     dust2::interpolate::InterpolateConstant<real_type> interpolate_alpha_smc;
@@ -419,7 +420,6 @@ public:
     std::vector<real_type> U_age;
     std::vector<real_type> P_age;
     std::vector<real_type> phi;
-    std::vector<real_type> rho_i;
     std::vector<real_type> n_prev;
     std::vector<real_type> detect_prev;
     std::vector<real_type> icm_pop;
@@ -429,6 +429,7 @@ public:
     std::vector<real_type> ic_pop;
     std::vector<real_type> all_deaths;
     std::vector<real_type> p_det;
+    std::vector<real_type> rho_i;
     std::vector<real_type> alpha_smc_array;
     std::vector<real_type> DS_trans;
     std::vector<real_type> AS_trans;
@@ -520,7 +521,7 @@ public:
     const real_type xi = dust2::r::read_real(parameters, "xi");
     const real_type zeta = dust2::r::read_real(parameters, "zeta");
     const real_type Lambda00sf = dust2::r::read_real(parameters, "Lambda00sf");
-    const real_type rho00 = dust2::r::read_real(parameters, "rho00");
+    const real_type rho_frac = dust2::r::read_real(parameters, "rho_frac");
     const real_type init_Sv = dust2::r::read_real(parameters, "init_Sv");
     const real_type init_Pv = dust2::r::read_real(parameters, "init_Pv");
     const real_type init_Iv = dust2::r::read_real(parameters, "init_Iv");
@@ -741,6 +742,7 @@ public:
     dust2::r::read_real_array(parameters, dim.init_ID, init_ID.data(), "init_ID", true);
     std::vector<real_type> age_vector(dim.age_vector.size);
     dust2::r::read_real_array(parameters, dim.age_vector, age_vector.data(), "age_vector", true);
+    const real_type rho00 = rho_frac * rho;
     const real_type p10 = monty::math::exp(-mum_use * foraging_time);
     const real_type p2 = monty::math::exp(-mum_use * gonotrophic_cycle);
     const auto interpolate_alpha_smc = dust2::interpolate::InterpolateConstant(alpha_smc_times, alpha_smc_set, "alpha_smc_times", "alpha_smc_set");
@@ -825,7 +827,7 @@ public:
       {"n", std::vector<size_t>(dim.n.dim.begin(), dim.n.dim.end())}
     };
     odin.packing.state.copy_offset(odin.offset.state.begin());
-    return shared_state{odin, dim, n_days, na, nh, eta, rA, rT, rD, rU, rP, dE, lag_rates, dCM, uCA, dCA, dB, uB, dID, uD, age20l, age20u, age_20_factor, PM, phi0, phi1, IC0, kC, b0, b1, kB, IB0, aD, fD0, gammaD, d1, ID0, kD, deltaq, deltaqp1, spor_len, gamma_atn, xi, zeta, Lambda00sf, rho00, init_Sv, init_Pv, init_Iv, cU, cD, cT, gamma1, lag_ratesMos, FOIv_eq, omega, delayGam, delayMos, dLL, dPL, dEL, muLL, muEL, muPL, gammaL, mv0, mum, foraging_time, gonotrophic_cycle, betaL, init_PL, init_LL, init_EL, max_smc_cov, max_itn_cov, Q0, phi_bednets, t0_atn, Q0_atn, lambda_atn, p_atn, num_int, prev_dim, inc_dim, rho, kappa, mum_use, b_lambda, alpha_smc_times, alpha_smc_set, phi_atn, cov_, days, daily_rain_input, daily_ft, age_rate, het_wt, init_S, init_T, init_D, init_A, init_U, init_P, FOI_eq, foi_age, rel_foi, x_I, init_ICM, init_ICA, init_IB, init_ID, age_vector, p10, p2, interpolate_alpha_smc, P_smc_daily, smc_mask, rel_c_days, r_itn_daily, s_itn_daily, cov, min_age_prev, max_age_prev, min_age_inc, max_age_inc, interpolate_rain_input, interpolate_ft, fd, interpolate_P_smc, interpolate_rel_c, interpolate_r_itn, interpolate_s_itn};
+    return shared_state{odin, dim, n_days, na, nh, eta, rA, rT, rD, rU, rP, dE, lag_rates, dCM, uCA, dCA, dB, uB, dID, uD, age20l, age20u, age_20_factor, PM, phi0, phi1, IC0, kC, b0, b1, kB, IB0, aD, fD0, gammaD, d1, ID0, kD, deltaq, deltaqp1, spor_len, gamma_atn, xi, zeta, Lambda00sf, rho_frac, init_Sv, init_Pv, init_Iv, cU, cD, cT, gamma1, lag_ratesMos, FOIv_eq, omega, delayGam, delayMos, dLL, dPL, dEL, muLL, muEL, muPL, gammaL, mv0, mum, foraging_time, gonotrophic_cycle, betaL, init_PL, init_LL, init_EL, max_smc_cov, max_itn_cov, Q0, phi_bednets, t0_atn, Q0_atn, lambda_atn, p_atn, num_int, prev_dim, inc_dim, rho, kappa, mum_use, b_lambda, alpha_smc_times, alpha_smc_set, phi_atn, cov_, days, daily_rain_input, daily_ft, age_rate, het_wt, init_S, init_T, init_D, init_A, init_U, init_P, FOI_eq, foi_age, rel_foi, x_I, init_ICM, init_ICA, init_IB, init_ID, age_vector, rho00, p10, p2, interpolate_alpha_smc, P_smc_daily, smc_mask, rel_c_days, r_itn_daily, s_itn_daily, cov, min_age_prev, max_age_prev, min_age_inc, max_age_inc, interpolate_rain_input, interpolate_ft, fd, interpolate_P_smc, interpolate_rel_c, interpolate_r_itn, interpolate_s_itn};
   }
   static internal_state build_internal(const shared_state& shared) {
     std::vector<real_type> S_death(shared.dim.S_death.size);
@@ -853,7 +855,6 @@ public:
     std::vector<real_type> U_age(shared.dim.U_age.size);
     std::vector<real_type> P_age(shared.dim.P_age.size);
     std::vector<real_type> phi(shared.dim.phi.size);
-    std::vector<real_type> rho_i(shared.dim.rho_i.size);
     std::vector<real_type> n_prev(shared.dim.n_prev.size);
     std::vector<real_type> detect_prev(shared.dim.detect_prev.size);
     std::vector<real_type> icm_pop(shared.dim.icm_pop.size);
@@ -863,6 +864,7 @@ public:
     std::vector<real_type> ic_pop(shared.dim.ic_pop.size);
     std::vector<real_type> all_deaths(shared.dim.all_deaths.size);
     std::vector<real_type> p_det(shared.dim.p_det.size);
+    std::vector<real_type> rho_i(shared.dim.rho_i.size);
     std::vector<real_type> alpha_smc_array(shared.dim.alpha_smc_array.size);
     std::vector<real_type> DS_trans(shared.dim.DS_trans.size);
     std::vector<real_type> AS_trans(shared.dim.AS_trans.size);
@@ -901,7 +903,7 @@ public:
     std::vector<real_type> FOIvijk(shared.dim.FOIvijk.size);
     std::vector<real_type> FOI_lag(shared.dim.FOI_lag.size);
     std::vector<real_type> epsilon_0(shared.dim.epsilon_0.size);
-    return internal_state{S_death, TP_trans, T_death, DA_trans, D_death, AU_trans, A_death, US_trans, U_death, PS_trans, P_death, FOI, init_ICM_pre, IC, b, Ecol, all, births, S_age, T_age, D_age, A_age, U_age, P_age, phi, rho_i, n_prev, detect_prev, icm_pop, ica_pop, id_pop, ib_pop, ic_pop, all_deaths, p_det, alpha_smc_array, DS_trans, AS_trans, US_trans_SMC, Lambda_i, cA, FOI_smc, smc_rel_c_mask, w_, z_, ST_rate, SD_rate, SA_rate, AT_rate, AD_rate, UA_rate, UD_rate, UT_rate, w, z, ST_trans, SD_trans, SA_trans, AT_trans, AD_trans, UA_trans, UD_trans, UT_trans, zhi, whi, dSv, dEv, dIv, av_mosq, EIR, FOIvijk, FOI_lag, epsilon_0};
+    return internal_state{S_death, TP_trans, T_death, DA_trans, D_death, AU_trans, A_death, US_trans, U_death, PS_trans, P_death, FOI, init_ICM_pre, IC, b, Ecol, all, births, S_age, T_age, D_age, A_age, U_age, P_age, phi, n_prev, detect_prev, icm_pop, ica_pop, id_pop, ib_pop, ic_pop, all_deaths, p_det, rho_i, alpha_smc_array, DS_trans, AS_trans, US_trans_SMC, Lambda_i, cA, FOI_smc, smc_rel_c_mask, w_, z_, ST_rate, SD_rate, SA_rate, AT_rate, AD_rate, UA_rate, UD_rate, UT_rate, w, z, ST_trans, SD_trans, SA_trans, AT_trans, AD_trans, UA_trans, UD_trans, UT_trans, zhi, whi, dSv, dEv, dIv, av_mosq, EIR, FOIvijk, FOI_lag, epsilon_0};
   }
   static data_type build_data(cpp11::list data, const shared_state& shared) {
     auto tests = dust2::r::read_real(data, "tests", NA_REAL);
@@ -945,7 +947,7 @@ public:
     shared.xi = dust2::r::read_real(parameters, "xi", shared.xi);
     shared.zeta = dust2::r::read_real(parameters, "zeta", shared.zeta);
     shared.Lambda00sf = dust2::r::read_real(parameters, "Lambda00sf", shared.Lambda00sf);
-    shared.rho00 = dust2::r::read_real(parameters, "rho00", shared.rho00);
+    shared.rho_frac = dust2::r::read_real(parameters, "rho_frac", shared.rho_frac);
     shared.init_Sv = dust2::r::read_real(parameters, "init_Sv", shared.init_Sv);
     shared.init_Pv = dust2::r::read_real(parameters, "init_Pv", shared.init_Pv);
     shared.init_Iv = dust2::r::read_real(parameters, "init_Iv", shared.init_Iv);
@@ -1008,6 +1010,7 @@ public:
     dust2::r::read_real_array(parameters, shared.dim.init_IB, shared.init_IB.data(), "init_IB", false);
     dust2::r::read_real_array(parameters, shared.dim.init_ID, shared.init_ID.data(), "init_ID", false);
     dust2::r::read_real_array(parameters, shared.dim.age_vector, shared.age_vector.data(), "age_vector", false);
+    shared.rho00 = shared.rho_frac * shared.rho;
     shared.p10 = monty::math::exp(-shared.mum_use * shared.foraging_time);
     shared.p2 = monty::math::exp(-shared.mum_use * shared.gonotrophic_cycle);
     dust2::r::read_real_array(parameters, shared.dim.P_smc_daily, shared.P_smc_daily.data(), "P_smc_daily", false);
@@ -1366,7 +1369,6 @@ public:
       }
     }
     const real_type Lambda = FOIvdel;
-    const real_type rho0_t = (time < shared.t0_atn ? shared.rho : shared.rho - (shared.rho - shared.rho00) * monty::math::exp(-shared.gamma_atn * (time - shared.t0_atn)));
     for (size_t i = 1; i <= static_cast<size_t>(shared.spor_len); ++i) {
       internal.Ecol[i - 1] = dust2::array::sum<real_type>(Ev, shared.dim.Ev, {0, shared.dim.Ev.dim[0] - 1}, {i - 1, i - 1});
     }
@@ -1433,9 +1435,7 @@ public:
       }
     }
     const real_type Lambda00 = Lambda * shared.Lambda00sf;
-    for (size_t i = 1; i <= shared.dim.rho_i.size; ++i) {
-      internal.rho_i[i - 1] = shared.rho - (shared.rho - rho0_t) * monty::math::exp(-shared.zeta * (i - static_cast<real_type>(0.5)));
-    }
+    const real_type rho0_t = (time < shared.t0_atn ? shared.rho : shared.rho - (shared.rho - shared.rho00) * monty::math::exp(-shared.gamma_atn * (time - shared.t0_atn)));
     for (size_t i = 1; i <= static_cast<size_t>(shared.prev_dim); ++i) {
       internal.n_prev[i - 1] = dust2::array::sum<real_type>(S, shared.dim.S, {shared.min_age_prev[i - 1] - 1, shared.max_age_prev[i - 1] - 1}, {0, shared.dim.S.dim[1] - 1}, {0, shared.dim.S.dim[2] - 1}) + dust2::array::sum<real_type>(T, shared.dim.T, {shared.min_age_prev[i - 1] - 1, shared.max_age_prev[i - 1] - 1}, {0, shared.dim.T.dim[1] - 1}, {0, shared.dim.T.dim[2] - 1}) + dust2::array::sum<real_type>(D, shared.dim.D, {shared.min_age_prev[i - 1] - 1, shared.max_age_prev[i - 1] - 1}, {0, shared.dim.D.dim[1] - 1}, {0, shared.dim.D.dim[2] - 1}) + dust2::array::sum<real_type>(A, shared.dim.A, {shared.min_age_prev[i - 1] - 1, shared.max_age_prev[i - 1] - 1}, {0, shared.dim.A.dim[1] - 1}, {0, shared.dim.A.dim[2] - 1}) + dust2::array::sum<real_type>(U, shared.dim.U, {shared.min_age_prev[i - 1] - 1, shared.max_age_prev[i - 1] - 1}, {0, shared.dim.U.dim[1] - 1}, {0, shared.dim.U.dim[2] - 1}) + dust2::array::sum<real_type>(P, shared.dim.P, {shared.min_age_prev[i - 1] - 1, shared.max_age_prev[i - 1] - 1}, {0, shared.dim.P.dim[1] - 1}, {0, shared.dim.P.dim[2] - 1});
     }
@@ -1493,6 +1493,9 @@ public:
       }
     }
     const real_type Lambda0_t = (time < shared.t0_atn ? Lambda : Lambda - (Lambda - Lambda00) * monty::math::exp(-shared.gamma_atn * (time - shared.t0_atn)));
+    for (size_t i = 1; i <= shared.dim.rho_i.size; ++i) {
+      internal.rho_i[i - 1] = shared.rho - (shared.rho - rho0_t) * monty::math::exp(-shared.zeta * (i - static_cast<real_type>(0.5)));
+    }
     for (size_t i = 1; i <= shared.dim.alpha_smc_array.dim[0]; ++i) {
       for (size_t j = 1; j <= shared.dim.alpha_smc_array.dim[1]; ++j) {
         for (size_t k = 1; k <= shared.dim.alpha_smc_array.dim[2]; ++k) {
