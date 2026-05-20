@@ -375,30 +375,96 @@ spor_len   <- parameter(type = "integer", constant = TRUE)
 
 # Core parameters
 gamma_atn  <- parameter()
-xi         <- parameter()
-zeta       <- parameter()
+#xi       <- parameter()  # superseded by Hill kernel for pre-infection blocking
+zeta     <- parameter()  # superseded by Hill kernel for EIP suppression
 Lambda     <- FOIvdel                # baseline FOI
 Lambda00sf <- parameter()            # scale factor for Λ₀⁰
 Lambda00   <- Lambda * Lambda00sf    # Λ₀⁰ = Λ * scale factor
 rho        <- spor_len / delayMos    # baseline EIP rate
-#rho00      <- parameter()            # ρ₀⁰
-rho_frac   <- parameter()
+rho_frac   <- parameter()            #
+dn0_atn    <- parameter()
 
-# Λ₀(τ) and ρ₀(τ): functions of time since ATN distributio
+# --- Hill kernel parameters (replacing exponential xi / zeta) ---
+# Pre-infection blocking (Lambda_i decay across mosquito ATN-exposure compartments)
+s_half_pre <- parameter()
+nH_pre     <- parameter()
+
+# EIP suppression (rho_i decay across mosquito ATN-exposure compartments)
+s_half_eip <- parameter()
+nH_eip     <- parameter()
+
+# Post-infection blocking (B_post: probability that an Ev mosquito re-exposed
+# to an ATN clears its established infection and returns to Sv[2])
+B_max_post  <- parameter()   # asymptotic blocking probability at t_post = 0 (LAB scale)
+s_half_post <- parameter()
+nH_post     <- parameter()
+
+# --- Bompard TRA → field TBA parameters ---
+# m, k from Bompard 2020 / Challenger 2023 SI (defaults for Burkina Faso wild
+# mosquitoes: m = 0.000157, k = 4.95e-6).
+# Closed form: TBA(tra; m, k) = (b - a) / (1 - a)
+#   where a = (k/(k+m))^k, b = (k/(k+m*(1-tra)))^k
+m_bompard <- parameter()
+k_bompard <- parameter()
+
+# a_bompard depends only on (m, k) so it's constant in time and across compartments
+a_bompard <- exp(k_bompard * (log(k_bompard) - log(k_bompard + m_bompard)))
+
+# --- Switches (compile-time integer flags) ---
+# use_bompard:  1 = apply Bompard TRA→field TBA, 0 = use lab b directly
+# use_eip_hill: 1 = Hill kernel for rho_i, 0 = exponential kernel (legacy form)
+use_bompard  <- parameter(type = "logical")#type = "integer", constant = TRUE)
+use_eip_hill <- parameter(type = "logical")#type = "integer", constant = TRUE)
+
+# Exp-kernel rate for the EIP suppression (only used when use_eip_hill == 0)
+# zeta <- parameter()
+
+# Λ₀(τ) and ρ₀(τ): rho00 is kept here as it depends only on rho.
+# In v3, Lambda0_t, rho0_t and dn_atn are no longer single-event analytic
+# functions of one t0_atn; they are computed as coverage-weighted averages
+# over all ATN distribution events in the "ATN distribution events (v3)"
+# block of the INTERVENTION MODEL section below.
 rho00 <- rho_frac * rho
-Lambda0_t <- if (time < t0_atn) Lambda else Lambda - (Lambda - Lambda00) * exp(-gamma_atn * (time - t0_atn))
-rho0_t    <- if (time < t0_atn) rho    else rho    - (rho    - rho00)    * exp(-gamma_atn * (time - t0_atn))
+
 
 # --- Decay of ATN effect across mosquito compartments (eqs. 9–10) ---
 
-# Λᵢ(s;τ) = Λ - (Λ - Λ₀(τ)) * exp(-ξ * s)
-# ρᵢ(s;τ) = ρ - (ρ - ρ₀(τ)) * exp(-ζ * s)
+# Hill kernel σ(s) = s_half^n / (s_half^n + s^n)
+# Lab blocking probability: b_lab(s) = (1 - Λ₀(τ)/Λ) * σ_pre(s)
+# Field blocking probability: b_field(s) = Bompard(b_lab(s); m, k)
+# Field FOI: Λᵢ(s;τ) = Λ * (1 - b_field(s))
+# EIP suppression (no Bompard — sporogony rate, not transmission probability):
+#   ρᵢ(s;τ) = ρ - (ρ - ρ₀(τ)) * σ_eip(s)
 # where s = i - 0.5  (midpoint of day for compartment i)
 
-dim(Lambda_i) <- deltaqp1
-dim(rho_i)    <- deltaqp1
-Lambda_i[] <- Lambda - (Lambda - Lambda0_t) * exp(-xi   * (i - 0.5))
-rho_i[]    <- rho    - (rho    - rho0_t)    * exp(-zeta * (i - 0.5))
+dim(Lambda_i)    <- deltaqp1
+dim(rho_i)       <- deltaqp1
+dim(b_lab_pre)   <- deltaqp1
+dim(b_field_pre) <- deltaqp1
+
+# Pre-infection blocking — Hill on lab scale, then (optionally) Bompard → field, then FOI
+b_lab_pre[]   <- (1 - Lambda0_t/Lambda) * (s_half_pre^nH_pre / (s_half_pre^nH_pre + (i - 0.5)^nH_pre))
+b_field_pre[] <- if (use_bompard) (exp(k_bompard * (log(k_bompard) - log(k_bompard + m_bompard * (1 - b_lab_pre[i])))) - a_bompard) / (1 - a_bompard) else b_lab_pre[i]
+Lambda_i[]    <- Lambda * (1 - b_field_pre[i])
+
+# EIP suppression — Hill (use_eip_hill == 1) or exponential (use_eip_hill == 0)
+rho_i[] <- if (use_eip_hill) rho - (rho - rho0_t) * (s_half_eip^nH_eip / (s_half_eip^nH_eip + (i - 0.5)^nH_eip)) else rho - (rho - rho0_t) * exp(-zeta * (i - 0.5))
+
+# --- Post-infection blocking (Ev → Sv[2] when re-exposed to ATN) ---
+# t_post[j]:      midpoint time-since-infection (in days) for sporogony stage j
+# b_lab_post[j]:  lab Hill blocking probability at t_post[j]
+# B_post[j]:      field blocking probability after Bompard transformation
+# B_post_Ecol[j]: per-stage flux pre-multiplied by B_post[j] for the Sv[2] inflow sum
+
+dim(t_post)       <- spor_len
+dim(b_lab_post)   <- spor_len
+dim(B_post)       <- spor_len
+dim(B_post_Ecol)  <- spor_len
+
+t_post[]      <- (i - 0.5) * delayMos / spor_len
+b_lab_post[]  <- B_max_post * (s_half_post^nH_post / (s_half_post^nH_post + t_post[i]^nH_post))
+B_post[]      <- if (use_bompard) (exp(k_bompard * (log(k_bompard) - log(k_bompard + m_bompard * (1 - b_lab_post[i])))) - a_bompard) / (1 - a_bompard) else b_lab_post[i]
+B_post_Ecol[] <- B_post[i] * Ecol[i]
 
 
 # Mosquito states
@@ -471,7 +537,7 @@ betaa <- 0.5*PL/dPL
 # Susceptible: dS0/dt, dS1/dt, dSi/dt (latex eqs. for S)
 dim(dSv) <- deltaqp1
 dSv[1] <- dt * ( betaa + kappa*Sv[deltaqp1] - (av*delta_atn + (1 - delta_atn)*Lambda + mu) * Sv[1] )
-dSv[2] <- dt * ( delta_atn*(av - Lambda0_t)*Svtot - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
+dSv[2] <- dt * ( delta_atn*(av*(1-dn_atn) - Lambda0_t)*Svtot + av*delta_atn*(1-dn_atn)*sum(B_post_Ecol[1:spor_len]) - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
 dSv[3:deltaqp1] <- dt * ( kappa*Sv[i-1] - (av*delta_atn + (1 - delta_atn)*Lambda_i[i] + kappa + mu) * Sv[i] )
 update(Sv[]) <- if (Sv[i] + dSv[i] < 0) 0 else Sv[i] + dSv[i]
 
@@ -490,7 +556,8 @@ dim(dEv) <- c(deltaqp1, spor_len)
 dEv[1,1] <- dt * ( kappa*Ev[deltaqp1,1] + (1 - delta_atn)*Lambda*Sv[1] - (av*delta_atn +      rho      + mu) * Ev[1,1] )
 
 # E_1^1 (i=2, j=1)
-dEv[2,1] <- dt * ( av*delta_atn*Ecol[1] + delta_atn*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
+# Re-exposure inflow scaled by (1 - B_post[1]); the diverted fraction goes to Sv[2].
+dEv[2,1] <- dt * ( (1 - B_post[1])*av*delta_atn*(1-dn_atn)*Ecol[1] + delta_atn*(1-dn_atn)*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
                    - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,1] )
 
 # E_i^1 (i >= 3, j=1)
@@ -502,7 +569,10 @@ dEv[1,2:spor_len] <- dt * ( kappa*Ev[deltaqp1,j] +      rho      *Ev[1,j-1]
                             - (av*delta_atn +      rho      + mu) * Ev[1,j] )
 
 # E_1^j (i=2, j=2..)
-dEv[2,2:spor_len] <- dt * ( av*delta_atn*Ecol[j] + rho_i[2]*Ev[2,j-1]
+# Re-exposure inflow scaled by (1 - B_post[j]); the diverted fraction goes to Sv[2].
+# Also adds the (1-dn_atn) survival factor that was missing from the original code,
+# matching dEv[2,1] and dIv[2].
+dEv[2,2:spor_len] <- dt * ( (1 - B_post[j])*av*delta_atn*(1-dn_atn)*Ecol[j] + rho_i[2]*Ev[2,j-1]
                             - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,j] )
 
 # E_i^j (i >= 3, j=2..)
@@ -523,7 +593,7 @@ dim(dIv) <- deltaqp1
 dIv[1] <- dt * ( kappa*Iv[deltaqp1] + rho*Ev[1, spor_len] - (av*delta_atn + mu) * Iv[1] )
 
 # i = 2  (exposed 1 day ago; concurrent term αδ I + rho_1 E_1^Δr)
-dIv[2] <- dt * ( av*delta_atn*Itot + rho_i[2]*Ev[2, spor_len]
+dIv[2] <- dt * ( av*delta_atn*(1-dn_atn)*Itot + rho_i[2]*Ev[2, spor_len]
                  - (av*delta_atn + kappa + mu) * Iv[2] )
 
 # i >= 3  (exposed ≥2 days ago; conveyor κ from previous ATN row + rho_i E_i^Δr)
@@ -657,7 +727,6 @@ smc_rel_c_mask[,,] <- 1 - (smc_mask[i,j,k] * (1-rel_c)) #Value = SMC_rel_c for t
 # See supplementary materials S2 from http://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1000324#s6
 max_itn_cov <- parameter()
 
-
 Q0 <- parameter()
 phi_bednets <- parameter()
 
@@ -701,29 +770,98 @@ s_itn <- interpolate(days, s_itn_daily, "linear")
 # update(atn_debug)  <- delta_atn
 
 
+# ===================== ATN distribution events (v3) =====================
+# v3 generalises the single-event ATN model (v2.1) to an arbitrary number
+# of ATN distribution events. t0_atn and Q0_atn are now vectors of length
+# n_atn; a single event / scalar usage is simply n_atn = 1 (a length-1
+# vector), handled by exactly the same code path. There is no separate
+# scalar branch, so the scalar-vs-vector inconsistency present in the ITN
+# code (set_bednets.R) is deliberately avoided here.
+#
+# Mixing rules mirror the ITN treatment in set_bednets.R / utils.R:
+#  - Coverage: each new distribution reaches a fraction Q0_atn of the WHOLE
+#    population drawn at random (random proportional replacement), so it
+#    removes a fraction Q0_atn from every existing category. This is the
+#    analogue of get_itn_usage_mat()'s proportional replacement and has a
+#    closed form, so no extra state variables are needed.
+#  - Drug-effect terms (Lambda0_t, rho0_t, dn_atn): computed per event from
+#    that event's own age, then averaged across events weighted by each
+#    event's share of current coverage -- the analogue of get_daily_decay()'s
+#    usage-weighted averaging of ITN d and r.
+#
+# Note: lambda_atn, gamma_atn, dn0_atn and p_atn are kept scalar (shared
+# across events), matching the request to vectorise only t0_atn and Q0_atn.
+
+# Number of ATN distribution events (compile-time constant; n_atn = 1 for a
+# single event / scalar usage).
+n_atn <- parameter(type = "integer", constant = TRUE)
+
 # Parameters
-t0_atn     <- parameter()
-Q0_atn     <- parameter()
-lambda_atn <- parameter()
+dim(t0_atn) <- n_atn
+dim(Q0_atn) <- n_atn
+t0_atn     <- parameter()   # day of each ATN distribution event (chronological)
+Q0_atn     <- parameter()   # initial coverage of each ATN distribution event
+lambda_atn <- parameter()   # ATN coverage (retention) decay rate, shared
 p_atn      <- parameter()
 phi_atn    <- phi_bednets
 
-# ATN coverage (analytic function)
-Q_atn_t <- if (time < t0_atn) 0 else Q0_atn*exp(-lambda_atn*(time - t0_atn))
+# --- Per-event coverage with random proportional replacement ---
+# repl_factor[i] = product over every later event j that has ALREADY
+# occurred of (1 - Q0_atn[j]): the fraction of event i's coverage not yet
+# displaced by a subsequent distribution. Computed as exp(sum(log(...)))
+# so it works for any n_atn (for n_atn = 1 the sum is empty -> factor 1).
+dim(repl_log) <- c(n_atn, n_atn)
+repl_log[, ] <- if (t0_atn[j] > t0_atn[i]) (if (t0_atn[j] <= time) log(1 - Q0_atn[j]) else 0) else 0
+dim(repl_factor) <- n_atn
+repl_factor[] <- exp(sum(repl_log[i, ]))
+
+# Per-event ATN coverage: initial Q0 decayed at lambda_atn since that
+# event's t0, then reduced by every later distribution that has since
+# occurred. Zero before the event.
+dim(Q_atn_each) <- n_atn
+Q_atn_each[] <- if (time < t0_atn[i]) 0 else Q0_atn[i] * exp(-lambda_atn * (time - t0_atn[i])) * repl_factor[i]
+
+# Total ATN coverage across all events
+Q_atn_t <- sum(Q_atn_each[])
+
+# --- Per-event drug-effect decay (gamma_atn) since each event's t0 ---
+dim(Lambda0_each) <- n_atn
+dim(rho0_each)    <- n_atn
+dim(dn_each)      <- n_atn
+Lambda0_each[] <- if (time < t0_atn[i]) Lambda else Lambda - (Lambda - Lambda00) * exp(-gamma_atn * (time - t0_atn[i]))
+rho0_each[]    <- if (time < t0_atn[i]) rho    else rho    - (rho    - rho00)    * exp(-gamma_atn * (time - t0_atn[i]))
+dn_each[]      <- if (time < t0_atn[i]) 0      else dn0_atn * exp(-gamma_atn * (time - t0_atn[i]))
+
+# --- Coverage-weighted average of the effect terms across events ---
+# Weights = each event's share of total current coverage (i.e. conditional
+# on a mosquito being exposed to an ATN at all). This is the direct
+# analogue of get_daily_decay(): usage-weighted averaging of the per-cohort
+# effect. Coverage itself enters separately via delta_atn below, so the
+# effect terms are a pure conditional average and are NOT re-scaled by
+# coverage. When there is no active coverage they fall back to the no-ATN
+# baselines (Lambda, rho, 0).
+dim(Lambda0_w) <- n_atn
+dim(rho0_w)    <- n_atn
+dim(dn_w)      <- n_atn
+Lambda0_w[] <- Q_atn_each[i] * Lambda0_each[i]
+rho0_w[]    <- Q_atn_each[i] * rho0_each[i]
+dn_w[]      <- Q_atn_each[i] * dn_each[i]
+
+Lambda0_t <- if (Q_atn_t > 0) sum(Lambda0_w[]) / Q_atn_t else Lambda
+rho0_t    <- if (Q_atn_t > 0) sum(rho0_w[])    / Q_atn_t else rho
+dn_atn    <- if (Q_atn_t > 0) sum(dn_w[])      / Q_atn_t else 0
 
 # Probability mosquito is exposed to antimalarial drugs on attempted bite
 delta_atn <- p_atn * phi_atn * Q_atn_t
 
-# Track Q_atn over time (so it’s output like a state variable)
-# TRY RECORDING THIS AS A VECTOR
+# Track total ATN coverage over time (output like a state variable)
 initial(Q_atn) <- 0
 update(Q_atn)  <- Q_atn_t
 
 # Dummy variable to ensure delta_atn is kept
 initial(atn_debug) <- 0
 update(atn_debug)  <- delta_atn
-
-# Update
+# ========================================================================
 
 
 ################## GENERAL INTERVENTION PARAMETERS #######################
@@ -1006,6 +1144,5 @@ update(detect[,,]) <- T[i,j,k] + D[i,j,k]  + A[i,j,k]*p_det[i,j,k]
 dim(n) <- c(na,nh,num_int)
 initial(n[,,]) <- init_A[i,j,k] + init_T[i,j,k] + init_D[i,j,k] + init_P[i,j,k] + init_U[i,j,k] + init_S[i,j,k]
 update(n[,,]) <- all[i,j,k]
-
 
 

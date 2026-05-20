@@ -375,30 +375,95 @@ spor_len   <- parameter(type = "integer", constant = TRUE)
 
 # Core parameters
 gamma_atn  <- parameter()
-xi         <- parameter()
-zeta       <- parameter()
+#xi       <- parameter()  # superseded by Hill kernel for pre-infection blocking
+zeta     <- parameter()  # superseded by Hill kernel for EIP suppression
 Lambda     <- FOIvdel                # baseline FOI
 Lambda00sf <- parameter()            # scale factor for Λ₀⁰
 Lambda00   <- Lambda * Lambda00sf    # Λ₀⁰ = Λ * scale factor
 rho        <- spor_len / delayMos    # baseline EIP rate
-#rho00      <- parameter()            # ρ₀⁰
-rho_frac   <- parameter()
+rho_frac   <- parameter()            #
+dn0_atn    <- parameter()
 
-# Λ₀(τ) and ρ₀(τ): functions of time since ATN distributio
+# --- Hill kernel parameters (replacing exponential xi / zeta) ---
+# Pre-infection blocking (Lambda_i decay across mosquito ATN-exposure compartments)
+s_half_pre <- parameter()
+nH_pre     <- parameter()
+
+# EIP suppression (rho_i decay across mosquito ATN-exposure compartments)
+s_half_eip <- parameter()
+nH_eip     <- parameter()
+
+# Post-infection blocking (B_post: probability that an Ev mosquito re-exposed
+# to an ATN clears its established infection and returns to Sv[2])
+B_max_post  <- parameter()   # asymptotic blocking probability at t_post = 0 (LAB scale)
+s_half_post <- parameter()
+nH_post     <- parameter()
+
+# --- Bompard TRA → field TBA parameters ---
+# m, k from Bompard 2020 / Challenger 2023 SI (defaults for Burkina Faso wild
+# mosquitoes: m = 0.000157, k = 4.95e-6).
+# Closed form: TBA(tra; m, k) = (b - a) / (1 - a)
+#   where a = (k/(k+m))^k, b = (k/(k+m*(1-tra)))^k
+m_bompard <- parameter()
+k_bompard <- parameter()
+
+# a_bompard depends only on (m, k) so it's constant in time and across compartments
+a_bompard <- exp(k_bompard * (log(k_bompard) - log(k_bompard + m_bompard)))
+
+# --- Switches (compile-time integer flags) ---
+# use_bompard:  1 = apply Bompard TRA→field TBA, 0 = use lab b directly
+# use_eip_hill: 1 = Hill kernel for rho_i, 0 = exponential kernel (legacy form)
+use_bompard  <- parameter(type = "logical")#type = "integer", constant = TRUE)
+use_eip_hill <- parameter(type = "logical")#type = "integer", constant = TRUE)
+
+# Exp-kernel rate for the EIP suppression (only used when use_eip_hill == 0)
+# zeta <- parameter()
+
+# Λ₀(τ) and ρ₀(τ): functions of time since ATN distribution
 rho00 <- rho_frac * rho
 Lambda0_t <- if (time < t0_atn) Lambda else Lambda - (Lambda - Lambda00) * exp(-gamma_atn * (time - t0_atn))
 rho0_t    <- if (time < t0_atn) rho    else rho    - (rho    - rho00)    * exp(-gamma_atn * (time - t0_atn))
+dn_atn    <- if (time < t0_atn) 0      else dn0_atn * exp(-gamma_atn * (time - t0_atn))
+
 
 # --- Decay of ATN effect across mosquito compartments (eqs. 9–10) ---
 
-# Λᵢ(s;τ) = Λ - (Λ - Λ₀(τ)) * exp(-ξ * s)
-# ρᵢ(s;τ) = ρ - (ρ - ρ₀(τ)) * exp(-ζ * s)
+# Hill kernel σ(s) = s_half^n / (s_half^n + s^n)
+# Lab blocking probability: b_lab(s) = (1 - Λ₀(τ)/Λ) * σ_pre(s)
+# Field blocking probability: b_field(s) = Bompard(b_lab(s); m, k)
+# Field FOI: Λᵢ(s;τ) = Λ * (1 - b_field(s))
+# EIP suppression (no Bompard — sporogony rate, not transmission probability):
+#   ρᵢ(s;τ) = ρ - (ρ - ρ₀(τ)) * σ_eip(s)
 # where s = i - 0.5  (midpoint of day for compartment i)
 
-dim(Lambda_i) <- deltaqp1
-dim(rho_i)    <- deltaqp1
-Lambda_i[] <- Lambda - (Lambda - Lambda0_t) * exp(-xi   * (i - 0.5))
-rho_i[]    <- rho    - (rho    - rho0_t)    * exp(-zeta * (i - 0.5))
+dim(Lambda_i)    <- deltaqp1
+dim(rho_i)       <- deltaqp1
+dim(b_lab_pre)   <- deltaqp1
+dim(b_field_pre) <- deltaqp1
+
+# Pre-infection blocking — Hill on lab scale, then (optionally) Bompard → field, then FOI
+b_lab_pre[]   <- (1 - Lambda0_t/Lambda) * (s_half_pre^nH_pre / (s_half_pre^nH_pre + (i - 0.5)^nH_pre))
+b_field_pre[] <- if (use_bompard) (exp(k_bompard * (log(k_bompard) - log(k_bompard + m_bompard * (1 - b_lab_pre[i])))) - a_bompard) / (1 - a_bompard) else b_lab_pre[i]
+Lambda_i[]    <- Lambda * (1 - b_field_pre[i])
+
+# EIP suppression — Hill (use_eip_hill == 1) or exponential (use_eip_hill == 0)
+rho_i[] <- if (use_eip_hill) rho - (rho - rho0_t) * (s_half_eip^nH_eip / (s_half_eip^nH_eip + (i - 0.5)^nH_eip)) else rho - (rho - rho0_t) * exp(-zeta * (i - 0.5))
+
+# --- Post-infection blocking (Ev → Sv[2] when re-exposed to ATN) ---
+# t_post[j]:      midpoint time-since-infection (in days) for sporogony stage j
+# b_lab_post[j]:  lab Hill blocking probability at t_post[j]
+# B_post[j]:      field blocking probability after Bompard transformation
+# B_post_Ecol[j]: per-stage flux pre-multiplied by B_post[j] for the Sv[2] inflow sum
+
+dim(t_post)       <- spor_len
+dim(b_lab_post)   <- spor_len
+dim(B_post)       <- spor_len
+dim(B_post_Ecol)  <- spor_len
+
+t_post[]      <- (i - 0.5) * delayMos / spor_len
+b_lab_post[]  <- B_max_post * (s_half_post^nH_post / (s_half_post^nH_post + t_post[i]^nH_post))
+B_post[]      <- if (use_bompard) (exp(k_bompard * (log(k_bompard) - log(k_bompard + m_bompard * (1 - b_lab_post[i])))) - a_bompard) / (1 - a_bompard) else b_lab_post[i]
+B_post_Ecol[] <- B_post[i] * Ecol[i]
 
 
 # Mosquito states
@@ -471,7 +536,7 @@ betaa <- 0.5*PL/dPL
 # Susceptible: dS0/dt, dS1/dt, dSi/dt (latex eqs. for S)
 dim(dSv) <- deltaqp1
 dSv[1] <- dt * ( betaa + kappa*Sv[deltaqp1] - (av*delta_atn + (1 - delta_atn)*Lambda + mu) * Sv[1] )
-dSv[2] <- dt * ( delta_atn*(av - Lambda0_t)*Svtot - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
+dSv[2] <- dt * ( delta_atn*(av*(1-dn_atn) - Lambda0_t)*Svtot + av*delta_atn*(1-dn_atn)*sum(B_post_Ecol[1:spor_len]) - (av*delta_atn + (1 - delta_atn)*Lambda_i[2] + kappa + mu) * Sv[2] )
 dSv[3:deltaqp1] <- dt * ( kappa*Sv[i-1] - (av*delta_atn + (1 - delta_atn)*Lambda_i[i] + kappa + mu) * Sv[i] )
 update(Sv[]) <- if (Sv[i] + dSv[i] < 0) 0 else Sv[i] + dSv[i]
 
@@ -490,7 +555,8 @@ dim(dEv) <- c(deltaqp1, spor_len)
 dEv[1,1] <- dt * ( kappa*Ev[deltaqp1,1] + (1 - delta_atn)*Lambda*Sv[1] - (av*delta_atn +      rho      + mu) * Ev[1,1] )
 
 # E_1^1 (i=2, j=1)
-dEv[2,1] <- dt * ( av*delta_atn*Ecol[1] + delta_atn*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
+# Re-exposure inflow scaled by (1 - B_post[1]); the diverted fraction goes to Sv[2].
+dEv[2,1] <- dt * ( (1 - B_post[1])*av*delta_atn*(1-dn_atn)*Ecol[1] + delta_atn*(1-dn_atn)*Lambda0_t*Svtot + (1 - delta_atn)*Lambda_i[2]*Sv[2]
                    - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,1] )
 
 # E_i^1 (i >= 3, j=1)
@@ -502,7 +568,10 @@ dEv[1,2:spor_len] <- dt * ( kappa*Ev[deltaqp1,j] +      rho      *Ev[1,j-1]
                             - (av*delta_atn +      rho      + mu) * Ev[1,j] )
 
 # E_1^j (i=2, j=2..)
-dEv[2,2:spor_len] <- dt * ( av*delta_atn*Ecol[j] + rho_i[2]*Ev[2,j-1]
+# Re-exposure inflow scaled by (1 - B_post[j]); the diverted fraction goes to Sv[2].
+# Also adds the (1-dn_atn) survival factor that was missing from the original code,
+# matching dEv[2,1] and dIv[2].
+dEv[2,2:spor_len] <- dt * ( (1 - B_post[j])*av*delta_atn*(1-dn_atn)*Ecol[j] + rho_i[2]*Ev[2,j-1]
                             - (av*delta_atn + kappa + rho_i[2] + mu) * Ev[2,j] )
 
 # E_i^j (i >= 3, j=2..)
@@ -523,7 +592,7 @@ dim(dIv) <- deltaqp1
 dIv[1] <- dt * ( kappa*Iv[deltaqp1] + rho*Ev[1, spor_len] - (av*delta_atn + mu) * Iv[1] )
 
 # i = 2  (exposed 1 day ago; concurrent term αδ I + rho_1 E_1^Δr)
-dIv[2] <- dt * ( av*delta_atn*Itot + rho_i[2]*Ev[2, spor_len]
+dIv[2] <- dt * ( av*delta_atn*(1-dn_atn)*Itot + rho_i[2]*Ev[2, spor_len]
                  - (av*delta_atn + kappa + mu) * Iv[2] )
 
 # i >= 3  (exposed ≥2 days ago; conveyor κ from previous ATN row + rho_i E_i^Δr)
@@ -656,7 +725,6 @@ smc_rel_c_mask[,,] <- 1 - (smc_mask[i,j,k] * (1-rel_c)) #Value = SMC_rel_c for t
 ################## ITN #######################
 # See supplementary materials S2 from http://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1000324#s6
 max_itn_cov <- parameter()
-
 
 Q0 <- parameter()
 phi_bednets <- parameter()
@@ -1006,6 +1074,5 @@ update(detect[,,]) <- T[i,j,k] + D[i,j,k]  + A[i,j,k]*p_det[i,j,k]
 dim(n) <- c(na,nh,num_int)
 initial(n[,,]) <- init_A[i,j,k] + init_T[i,j,k] + init_D[i,j,k] + init_P[i,j,k] + init_U[i,j,k] + init_S[i,j,k]
 update(n[,,]) <- all[i,j,k]
-
 
 
