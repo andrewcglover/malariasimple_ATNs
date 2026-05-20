@@ -12,6 +12,7 @@ dev/*.png
 dev/*.rds
 dev/*.RDS
 dev/*.csv
+dev/exp_data/
 
 # Outputs at the repo root
 *.pdf
